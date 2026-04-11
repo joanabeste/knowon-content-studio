@@ -27,11 +27,11 @@ const supabase = createClient(url, serviceKey, {
 
 const GENERAL = {
   tone: `Professionell-warmherzig, sachlich-strukturiert, B2B. Klar, hochwertig wirkend, nie clickbait. Kompetent, aber nicht arrogant.`,
-  audience: `Augenarztpraxen und ihr Team: MFAs, Quereinsteiger:innen in die Augenheilkunde, Azubis, Praxismanagement, Ärzt:innen. Ziel: Wissen aufbauen, direkt im Praxisalltag anwenden, Einarbeitung strukturieren.`,
+  audience: `Augenarztpraxen und ihr Team: MFAs, Quereinsteiger in die Augenheilkunde, Azubis, Praxismanagement, Augenärzte. Ziel: Wissen aufbauen, direkt im Praxisalltag anwenden, Einarbeitung strukturieren.`,
   about_knowon: `KnowOn ist eine Online-Lernplattform für digitale Weiterbildung in der Augenheilkunde, gegründet von Nadine Dyck mit Sitz in Minden. Angebote: eLearning-Kurse (Anatomie, Optik, Katarakt, Glaukom, Contactlinsen, Notfälle, OCT, refraktive Chirurgie), Webinare, strukturierte Azubi- und Quereinsteiger-Programme, Spezialisierungsqualifikation Augenheilkunde. Mission: Fachwissen in der Augenheilkunde besser vermitteln.`,
   dos: [
-    `Gender-gerechte Schreibweise (Ärzt:innen, Patient:innen, Mitarbeitende)`,
-    `Zielgruppe direkt nennen (Praxisteams, MFAs, Azubis, Quereinsteiger:innen)`,
+    `Klare, natürliche Schreibweise ohne Gendersonderzeichen (z.B. Ärzte, Patienten, Mitarbeitende)`,
+    `Zielgruppe direkt nennen (Praxisteams, MFAs, Azubis, Quereinsteiger)`,
     `Praxis-Nutzen konkret machen (z.B. „direkt im Alltag anwendbar")`,
     `Kernkeywords verwenden: praxisnah, hochwertig, strukturiert, nachhaltig, Mehrwert, Kompetenz`,
     `Win-Win betonen: Praxis UND Mitarbeitende profitieren`,
@@ -50,14 +50,14 @@ const GENERAL = {
 
 const CHANNELS = {
   linkedin: {
-    tone: `Professionell-persönlich, Hook in den ersten 2 Zeilen. Kompetent auftreten, gern Gründerinnen-Perspektive (Nadine Dyck).`,
+    tone: `Professionell-persönlich, Hook in den ersten 2 Zeilen. Kompetent auftreten, gern Gründer-Perspektive (Nadine Dyck).`,
     length_guideline: `600-1500 Zeichen, 3-5 Hashtags.`,
     cta_style: `Subtil, am Ende: „Mehr erfahren: knowon.de" oder Frage an die Community.`,
     specific_dos: [
       `Mit Frage, Insight oder persönlicher Beobachtung öffnen`,
       `Zahlen/Fakten wenn verfügbar`,
       `Echtes Storytelling statt reines Produkt-Pitch`,
-      `Partner/Kolleg:innen namentlich nennen bei Kooperationen`,
+      `Partner und Kollegen namentlich nennen bei Kooperationen`,
     ],
     specific_donts: [
       `Kein reines Produkt-Pitch`,
@@ -72,7 +72,7 @@ const CHANNELS = {
     cta_style: `„Link in Bio", „Speichere dir den Post", Frage an die Community.`,
     specific_dos: [
       `Emotional öffnen`,
-      `Menschen zeigen (Team, Kund:innen-Praxen)`,
+      `Menschen zeigen (Team, Kunden-Praxen)`,
       `Kurze Absätze mit Leerzeilen`,
       `Hashtag-Block am Ende, visuell vom Text getrennt`,
     ],
@@ -100,7 +100,7 @@ const CHANNELS = {
     notes: null,
   },
   newsletter: {
-    tone: `Direkte, warme Ansprache „Liebes Praxisteam" / „Liebe Kolleg:innen". Eine Kernbotschaft pro Mail.`,
+    tone: `Direkte, warme Ansprache „Liebes Praxisteam" / „Liebe Kollegen". Eine Kernbotschaft pro Mail.`,
     length_guideline: `Betreff <55 Zeichen, Preheader 80-120 Zeichen, HTML-Body mit klarer Struktur (h2, p, ul, a, strong).`,
     cta_style: `Ein Haupt-CTA pro Mail, als Button oder starker Link.`,
     specific_dos: [

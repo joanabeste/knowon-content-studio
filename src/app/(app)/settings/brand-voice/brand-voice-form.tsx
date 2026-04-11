@@ -187,7 +187,7 @@ export function BrandVoiceForm({ initial }: { initial: BrandVoice | null }) {
             name="audience"
             rows={3}
             defaultValue={initial?.audience ?? ""}
-            placeholder="z.B. Augenoptiker*innen, die sich digital weiterbilden wollen…"
+            placeholder="z.B. Augenärzte und MFAs in Augenarztpraxen, die sich digital weiterbilden wollen…"
           />
         </div>
         <div className="space-y-2">

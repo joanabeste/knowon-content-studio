@@ -77,7 +77,7 @@ export function GenerateForm() {
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           placeholder={
-            "- Kernbotschaft: Was ist das Wichtigste in einem Satz?\n- Zielgruppe: z.B. Augenärzt*innen, MFAs, Orthoptist*innen\n- Fakten & Zahlen: z.B. 4 Module, 3 Std, zertifiziert\n- Referent*in oder Partner: Name + Rolle (falls relevant)\n- CTA: z.B. kostenlose Probelektion, Anmeldung, Kontakt"
+            "- Kernbotschaft: Was ist das Wichtigste in einem Satz?\n- Zielgruppe: z.B. Augenärzte, MFAs, Orthoptisten\n- Fakten & Zahlen: z.B. 4 Module, 3 Std, zertifiziert\n- Referent oder Partner: Name + Rolle (falls relevant)\n- CTA: z.B. kostenlose Probelektion, Anmeldung, Kontakt"
           }
         />
       </div>

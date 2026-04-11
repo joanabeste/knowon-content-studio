@@ -24,13 +24,13 @@ export default async function TeamPage() {
       <div>
         <h1 className="text-3xl font-bold">Team</h1>
         <p className="text-muted-foreground">
-          Lege Kolleg*innen direkt an und verwalte ihre Rollen.
+          Lege Kollegen direkt an und verwalte ihre Rollen.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Neue*n Nutzer*in anlegen</CardTitle>
+          <CardTitle>Neuen Nutzer anlegen</CardTitle>
           <CardDescription>
             Kein E-Mail-Versand, kein Bestätigungsschritt. Du vergibst direkt
             ein Passwort, das du der Person intern weitergibst.
@@ -43,7 +43,7 @@ export default async function TeamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Alle Nutzer*innen</CardTitle>
+          <CardTitle>Alle Nutzer</CardTitle>
         </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
@@ -93,7 +93,7 @@ export default async function TeamPage() {
           </table>
           {!profiles?.length && (
             <p className="py-4 text-sm text-muted-foreground">
-              Noch keine Nutzer*innen.
+              Noch keine Nutzer.
             </p>
           )}
         </CardContent>

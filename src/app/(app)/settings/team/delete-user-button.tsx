@@ -22,7 +22,7 @@ export function DeleteUserButton({
     if (disabled) return;
     if (
       !confirm(
-        `Nutzer*in "${userName}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`,
+        `Nutzer "${userName}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`,
       )
     ) {
       return;
@@ -30,7 +30,7 @@ export function DeleteUserButton({
     start(async () => {
       const res = await deleteUser(userId);
       if ("error" in res && res.error) toast.show(res.error, "error");
-      else toast.show("Nutzer*in gelöscht.", "success");
+      else toast.show("Nutzer gelöscht.", "success");
     });
   };
 

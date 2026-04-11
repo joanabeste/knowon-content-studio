@@ -912,7 +912,7 @@ export async function deleteProject(projectId: string) {
 
   const isOwner = project.created_by === user.id;
   if (profile.role !== "admin" && !isOwner) {
-    return { error: "Nur Admin oder Ersteller*in darf löschen." };
+    return { error: "Nur Admin oder Ersteller darf löschen." };
   }
 
   // Collect image paths to remove from storage
@@ -965,7 +965,7 @@ export async function deleteVariant(variantId: string) {
   const project = (variant as any).project as { created_by: string | null } | null;
   const isOwner = project?.created_by === user.id;
   if (profile.role !== "admin" && !isOwner) {
-    return { error: "Nur Admin oder Ersteller*in darf Varianten löschen." };
+    return { error: "Nur Admin oder Ersteller darf Varianten löschen." };
   }
 
   // Cascade: deleting the variant row removes all its versions via the

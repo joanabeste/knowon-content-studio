@@ -51,7 +51,7 @@ export function CreateUserForm() {
       if ("error" in res && res.error) {
         toast.show(res.error, "error");
       } else {
-        toast.show("Nutzer*in angelegt.", "success");
+        toast.show("Nutzer angelegt.", "success");
         formRef.current?.reset();
         setPassword("");
         setVisible(false);
@@ -117,8 +117,20 @@ export function CreateUserForm() {
             Generieren
           </button>
         </div>
-        <div className="relative">
-          <Input
+        {/*
+          Flex wrapper styled like a single Input so the eye+copy
+          buttons live visually INSIDE the field. We can't use the
+          shared Input component here because it's a bare <input>
+          element — stacking icons on top with absolute positioning
+          worked technically but looked detached. This is cleaner.
+        */}
+        <div
+          className={cn(
+            "flex h-10 w-full items-center gap-0.5 rounded-md border border-input bg-background pl-3 pr-1 text-sm ring-offset-background transition-colors",
+            "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring",
+          )}
+        >
+          <input
             id="password"
             name="password"
             type={visible ? "text" : "password"}
@@ -131,40 +143,38 @@ export function CreateUserForm() {
               setCopied(false);
             }}
             className={cn(
-              "pr-20 font-mono",
-              !visible && "font-sans", // only use mono when revealed
+              "flex-1 bg-transparent py-2 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+              visible ? "font-mono" : "font-sans",
             )}
             autoComplete="new-password"
           />
-          <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => setVisible((v) => !v)}
-              aria-label={visible ? "Passwort verbergen" : "Passwort anzeigen"}
-              title={visible ? "Verbergen" : "Anzeigen"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              {visible ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onCopy}
-              disabled={!password}
-              aria-label="Passwort kopieren"
-              title="Kopieren"
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-knowon-teal" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            aria-label={visible ? "Passwort verbergen" : "Passwort anzeigen"}
+            title={visible ? "Verbergen" : "Anzeigen"}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {visible ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onCopy}
+            disabled={!password}
+            aria-label="Passwort kopieren"
+            title="Kopieren"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-knowon-teal" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </button>
         </div>
       </div>
       <div className="space-y-2">
