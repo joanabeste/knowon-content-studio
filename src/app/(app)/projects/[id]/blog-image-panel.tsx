@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ImageIcon, Sparkles, Star, Trash2, Loader2, RefreshCw } from "lucide-react";
+import {
+  ImageIcon,
+  Sparkles,
+  Star,
+  Trash2,
+  Loader2,
+  RefreshCw,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -11,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import type { ImageRow, UserRole } from "@/lib/supabase/types";
 import {
   generateBlogImage,
+  uploadBlogImage,
   setFeaturedImage,
   deleteImage,
   getSignedImageUrl,
@@ -41,12 +50,66 @@ export function BlogImagePanel({
   );
   const [size, setSize] = React.useState<ImageSize>("1536x1024");
   const [pending, setPending] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
   const [showPromptEditor, setShowPromptEditor] = React.useState(
     initialImages.length === 0,
   );
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const canEdit = role === "admin" || role === "editor";
+
+  const onPickFile = () => fileInputRef.current?.click();
+
+  const onFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so re-selecting the same file fires change again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await uploadBlogImage(projectId, form);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+        return;
+      }
+      if (res.imageId && res.signedUrl) {
+        const isFirst = images.length === 0;
+        if (isFirst) {
+          await setFeaturedImage(projectId, res.imageId);
+        }
+        setImages((prev) => [
+          {
+            id: res.imageId!,
+            project_id: projectId,
+            prompt: `Upload: ${file.name}`,
+            storage_path: "",
+            wp_media_id: null,
+            is_featured: isFirst,
+            size: null,
+            created_by: null,
+            created_at: new Date().toISOString(),
+            signedUrl: res.signedUrl!,
+          },
+          ...prev,
+        ]);
+        setShowPromptEditor(false);
+        toast.show(
+          isFirst
+            ? "Bild hochgeladen und als Featured markiert."
+            : "Bild hochgeladen.",
+          "success",
+        );
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onGenerate = async () => {
     if (!prompt.trim()) {
@@ -129,26 +192,62 @@ export function BlogImagePanel({
 
   return (
     <div className="rounded-lg border bg-muted/20 p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={onFileSelected}
+      />
+
+      <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <ImageIcon className="h-4 w-4 text-muted-foreground" />
           Beitragsbild
         </div>
-        {canEdit && images.length > 0 && !showPromptEditor && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowPromptEditor(true)}
-          >
-            <Sparkles className="h-4 w-4" /> Weiteres Bild
-          </Button>
+        {canEdit && images.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onPickFile}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Hochladen
+            </Button>
+            {!showPromptEditor && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPromptEditor(true)}
+              >
+                <Sparkles className="h-4 w-4" /> Generieren
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
       {images.length === 0 && !showPromptEditor && canEdit && (
-        <Button variant="outline" onClick={() => setShowPromptEditor(true)}>
-          <Sparkles className="h-4 w-4" /> Bild für diesen Beitrag erzeugen
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={onPickFile} disabled={uploading}>
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Eigenes Bild hochladen
+          </Button>
+          <span className="text-xs text-muted-foreground">oder</span>
+          <Button variant="outline" onClick={() => setShowPromptEditor(true)}>
+            <Sparkles className="h-4 w-4" /> Mit KI generieren
+          </Button>
+        </div>
       )}
 
       {showPromptEditor && canEdit && (

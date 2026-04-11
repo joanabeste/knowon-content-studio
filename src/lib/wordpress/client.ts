@@ -174,9 +174,15 @@ async function ensureTags(
   return ids;
 }
 
-export async function createPost(
+/**
+ * Creates a new post OR updates an existing one. WordPress uses the
+ * same endpoint and method (POST) for both — the difference is whether
+ * the URL includes the post ID.
+ */
+async function sendPost(
   creds: WpCredentials,
   input: WpCreatePostInput,
+  existingPostId?: number,
 ): Promise<WpPostResult> {
   const tagIds = input.tagNames ? await ensureTags(creds, input.tagNames) : [];
 
@@ -190,13 +196,9 @@ export async function createPost(
   if (input.featuredMediaId) body.featured_media = input.featuredMediaId;
   if (tagIds.length) body.tags = tagIds;
   if (input.date) {
-    // WordPress accepts `date` (local TZ) and `date_gmt` (UTC).
-    // We pass both — the app always sends ISO in UTC so date_gmt is
-    // authoritative.
     body.date = input.date;
     body.date_gmt = input.date;
   }
-  // Meta description — Yoast / RankMath / fallback
   if (input.metaDescription) {
     body.meta = {
       _yoast_wpseo_metadesc: input.metaDescription,
@@ -204,22 +206,40 @@ export async function createPost(
     };
   }
 
-  const res = await fetch(
-    new URL("/wp-json/wp/v2/posts", creds.baseUrl).toString(),
-    {
-      method: "POST",
-      headers: {
-        Authorization: authHeader(creds),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+  const path = existingPostId
+    ? `/wp-json/wp/v2/posts/${existingPostId}`
+    : `/wp-json/wp/v2/posts`;
+
+  const res = await fetch(new URL(path, creds.baseUrl).toString(), {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(creds),
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`WP post create failed: ${res.status} ${text}`);
+    throw new Error(
+      `WP post ${existingPostId ? "update" : "create"} failed: ${res.status} ${text}`,
+    );
   }
   return (await res.json()) as WpPostResult;
+}
+
+export async function createPost(
+  creds: WpCredentials,
+  input: WpCreatePostInput,
+): Promise<WpPostResult> {
+  return sendPost(creds, input);
+}
+
+export async function updatePost(
+  creds: WpCredentials,
+  postId: number,
+  input: WpCreatePostInput,
+): Promise<WpPostResult> {
+  return sendPost(creds, input, postId);
 }
 
 /** Verifies that credentials work by calling /users/me. */

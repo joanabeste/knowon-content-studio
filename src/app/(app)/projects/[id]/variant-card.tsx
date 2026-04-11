@@ -421,19 +421,24 @@ export function VariantCard({
                 rel="noreferrer"
                 className="text-sm text-primary hover:underline"
               >
-                WordPress-Entwurf öffnen ↗
+                WordPress-Post öffnen ↗
               </a>
             )}
         </div>
 
-        {/* WordPress-Publish-Panel for blog variants that are approved */}
+        {/* WordPress-Publish-Panel for blog variants:
+            - status=approved → first-time send (create new post)
+            - status=published → post exists in WP, enables updates/re-sync */}
         {!editing &&
-          variant.status === "approved" &&
           variant.channel === "blog" &&
-          canPublish && (
+          canPublish &&
+          (variant.status === "approved" ||
+            variant.status === "published") && (
             <WpPublishForm
               projectId={variant.project_id}
               variantId={variant.id}
+              isUpdate={!!(metadata.wp_post_id as number | undefined)}
+              wpPostUrl={(metadata.wp_post_url as string | undefined) ?? null}
             />
           )}
       </CardContent>
