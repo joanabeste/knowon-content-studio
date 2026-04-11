@@ -113,9 +113,30 @@ export interface ContentVariant {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any> | null;
   status: VariantStatus;
+  created_by: string | null;
+  updated_by: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
+}
+
+/**
+ * ContentVariant augmented with joined profile data for the author
+ * and reviewer. Page-level queries use Supabase's PostgREST
+ * `author:created_by(full_name)` syntax to hydrate these.
+ */
+export interface ContentVariantWithPeople extends ContentVariant {
+  author?: { full_name: string | null } | null;
+  reviewer?: { full_name: string | null } | null;
+}
+
+export interface VariantNote {
+  id: string;
+  variant_id: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+  author?: { full_name: string | null } | null;
 }
 
 export interface ImageRow {

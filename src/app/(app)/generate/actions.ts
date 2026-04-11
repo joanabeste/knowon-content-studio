@@ -61,6 +61,7 @@ export async function generateContent(formData: FormData) {
     body: r.body,
     metadata: r.metadata,
     status: "draft" as const,
+    created_by: user.id,
   }));
 
   const { error: varErr } = await supabase

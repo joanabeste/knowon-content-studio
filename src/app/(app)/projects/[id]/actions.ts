@@ -30,7 +30,7 @@ export async function updateVariantBody(
   body: string,
   metadata: Record<string, unknown> | null,
 ) {
-  const { supabase, profile } = await requireUser();
+  const { supabase, user, profile } = await requireUser();
   if (profile.role === "reviewer") {
     return { error: "Reviewer dürfen Inhalte nicht bearbeiten." };
   }
@@ -43,7 +43,7 @@ export async function updateVariantBody(
 
   const { error } = await supabase
     .from("content_variants")
-    .update({ body, metadata })
+    .update({ body, metadata, updated_by: user.id })
     .eq("id", variantId);
 
   if (error) return { error: error.message };
@@ -767,6 +767,71 @@ export async function publishBlogToWordpress(
 }
 
 // =====================================================================
+// Variant notes — internal thread per channel variant. Any team
+// member can add; only the note author (or an admin) can delete.
+// =====================================================================
+
+const MAX_NOTE_LEN = 2000;
+
+export async function addVariantNote(variantId: string, body: string) {
+  const { supabase, user } = await requireUser();
+
+  const trimmed = body.trim();
+  if (!trimmed) return { error: "Notiz darf nicht leer sein." };
+  if (trimmed.length > MAX_NOTE_LEN) {
+    return { error: `Notiz zu lang (max ${MAX_NOTE_LEN} Zeichen).` };
+  }
+
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("project_id")
+    .eq("id", variantId)
+    .single();
+  if (!variant) return { error: "Variante nicht gefunden." };
+
+  const { error } = await supabase.from("variant_notes").insert({
+    variant_id: variantId,
+    body: trimmed,
+    created_by: user.id,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${variant.project_id}`);
+  return { ok: true };
+}
+
+export async function deleteVariantNote(noteId: string) {
+  const { supabase, user, profile } = await requireUser();
+
+  // Need the variant's project_id for revalidation, and the note's
+  // created_by for the permission check. One query via join.
+  const { data: note } = await supabase
+    .from("variant_notes")
+    .select("created_by, content_variants!inner(project_id)")
+    .eq("id", noteId)
+    .single();
+  if (!note) return { error: "Notiz nicht gefunden." };
+
+  const canDelete =
+    profile.role === "admin" || note.created_by === user.id;
+  if (!canDelete) return { error: "Kein Zugriff." };
+
+  const { error } = await supabase
+    .from("variant_notes")
+    .delete()
+    .eq("id", noteId);
+  if (error) return { error: error.message };
+
+  // The join result comes back as an array in the typed client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cv = (note as any).content_variants;
+  const projectId = Array.isArray(cv) ? cv[0]?.project_id : cv?.project_id;
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+
+  return { ok: true };
+}
+
+// =====================================================================
 // WordPress categories list — used by the variant editor to show
 // existing WP categories as a quick-pick. Best-effort: returns []
 // if WP isn't configured or unreachable. Never throws to the client.
@@ -950,6 +1015,7 @@ export async function addChannelsToProject(
     body: r.body,
     metadata: r.metadata,
     status: "draft" as const,
+    created_by: user.id,
   }));
 
   const { error: insertErr } = await supabase

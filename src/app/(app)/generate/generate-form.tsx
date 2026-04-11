@@ -77,7 +77,7 @@ export function GenerateForm() {
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           placeholder={
-            "- Zielgruppe: MFAs in Augenarztpraxen\n- Kursstart: 15. Mai\n- USP: 100% online, Zertifikat, Expertin Dr. XY\n- CTA: Anmeldung über knowon.de/kontakt"
+            "- Kernbotschaft: Was ist das Wichtigste in einem Satz?\n- Zielgruppe: z.B. Augenärzt*innen, MFAs, Orthoptist*innen\n- Fakten & Zahlen: z.B. 4 Module, 3 Std, zertifiziert\n- Referent*in oder Partner: Name + Rolle (falls relevant)\n- CTA: z.B. kostenlose Probelektion, Anmeldung, Kontakt"
           }
         />
       </div>

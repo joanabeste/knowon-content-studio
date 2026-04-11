@@ -19,8 +19,9 @@ import {
   ALL_CHANNELS,
   CHANNEL_LABELS,
   type Channel,
-  type ContentVariant,
+  type ContentVariantWithPeople,
   type UserRole,
+  type VariantNote,
 } from "@/lib/supabase/types";
 import { VariantCard } from "./variant-card";
 import { BlogImagePanel, type ImageWithUrl } from "./blog-image-panel";
@@ -43,18 +44,22 @@ export function ProjectDetailClient({
   projectId,
   channels,
   variants,
+  notesByVariant,
   images,
   role,
+  currentUserId,
 }: {
   projectId: string;
   channels: Channel[];
-  variants: ContentVariant[];
+  variants: ContentVariantWithPeople[];
+  notesByVariant: Record<string, VariantNote[]>;
   images: ImageWithUrl[];
   role: UserRole;
+  currentUserId: string;
 }) {
   // Variant map by channel for quick lookup
   const variantByChannel = React.useMemo(() => {
-    const m = new Map<Channel, ContentVariant>();
+    const m = new Map<Channel, ContentVariantWithPeople>();
     for (const v of variants) m.set(v.channel, v);
     return m;
   }, [variants]);
@@ -124,6 +129,8 @@ export function ProjectDetailClient({
               variant={variant}
               channelLabel={CHANNEL_LABELS[ch]}
               role={role}
+              notes={notesByVariant[variant.id] ?? []}
+              currentUserId={currentUserId}
             />
           </TabsContent>
         );

@@ -41,6 +41,7 @@ export async function addFeed(formData: FormData) {
   }
 
   revalidatePath("/library/feeds");
+  revalidatePath("/settings/integrations");
   return { ok: true };
 }
 
@@ -50,6 +51,7 @@ export async function deleteFeed(feedId: string) {
   const { error } = await supabase.from("content_feeds").delete().eq("id", feedId);
   if (error) return { error: error.message };
   revalidatePath("/library/feeds");
+  revalidatePath("/settings/integrations");
   return { ok: true };
 }
 
@@ -70,6 +72,7 @@ export async function toggleFeedActive(feedId: string) {
     .eq("id", feedId);
   if (error) return { error: error.message };
   revalidatePath("/library/feeds");
+  revalidatePath("/settings/integrations");
   return { ok: true };
 }
 
@@ -170,6 +173,7 @@ export async function doSyncFeed(
 
   revalidatePath("/library/feeds");
   revalidatePath("/library/sources");
+  revalidatePath("/settings/integrations");
 
   return { ok: true, feedName: feed.name, fetched: items.length, imported };
 }
@@ -191,5 +195,6 @@ export async function syncAllFeeds() {
   }
   revalidatePath("/library/feeds");
   revalidatePath("/library/sources");
+  revalidatePath("/settings/integrations");
   return { ok: true, results };
 }

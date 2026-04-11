@@ -10,6 +10,8 @@ import {
   Loader2,
   ExternalLink,
   Trash2,
+  MessageSquare,
+  User as UserIcon,
 } from "lucide-react";
 import {
   Card,
@@ -24,14 +26,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 import type {
-  ContentVariant,
+  ContentVariantWithPeople,
   UserRole,
+  VariantNote,
   VariantStatus,
 } from "@/lib/supabase/types";
 import {
+  addVariantNote,
   deleteVariant,
+  deleteVariantNote,
   listWpCategoryNames,
   setVariantStatus,
   updateVariantBody,
@@ -91,7 +96,7 @@ function StatusSelect({
   variant,
   onChanged,
 }: {
-  variant: ContentVariant;
+  variant: ContentVariantWithPeople;
   onChanged?: (status: VariantStatus) => void;
 }) {
   const [pending, start] = useTransition();
@@ -145,10 +150,14 @@ export function VariantCard({
   variant,
   channelLabel,
   role,
+  notes,
+  currentUserId,
 }: {
-  variant: ContentVariant;
+  variant: ContentVariantWithPeople;
   channelLabel: string;
   role: UserRole;
+  notes: VariantNote[];
+  currentUserId: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(variant.body);
@@ -325,6 +334,7 @@ export function VariantCard({
             )}
           </div>
         </div>
+        <AttributionLine variant={variant} />
         {charLimit && (
           <CardDescription
             className={cn(
@@ -655,7 +665,197 @@ export function VariantCard({
               wpPostUrl={(metadata.wp_post_url as string | undefined) ?? null}
             />
           )}
+
+        <NotesThread
+          variantId={variant.id}
+          notes={notes}
+          currentUserId={currentUserId}
+          role={role}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Compact attribution line shown under the status pill. Skipped
+ * entirely on legacy variants that have neither author nor reviewer
+ * so we don't render an empty bar.
+ */
+function AttributionLine({
+  variant,
+}: {
+  variant: ContentVariantWithPeople;
+}) {
+  const author = variant.author?.full_name;
+  const reviewer = variant.reviewer?.full_name;
+  if (!author && !reviewer) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      {author && (
+        <span className="inline-flex items-center gap-1">
+          <UserIcon className="h-3 w-3" />
+          <span>
+            Autor: <span className="font-medium text-foreground">{author}</span>
+          </span>
+        </span>
+      )}
+      {reviewer && (
+        <span className="inline-flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3 text-knowon-teal" />
+          <span>
+            Review:{" "}
+            <span className="font-medium text-foreground">{reviewer}</span>
+            {variant.reviewed_at && (
+              <span className="text-muted-foreground">
+                {" · "}
+                {formatRelative(variant.reviewed_at)}
+              </span>
+            )}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Internal notes thread for a single variant. Any logged-in team
+ * member can add a note; delete is restricted to the note author or
+ * an admin. Notes are collapsed behind a header by default to keep
+ * the card compact; expand when there are already notes or the user
+ * wants to add one.
+ */
+function NotesThread({
+  variantId,
+  notes,
+  currentUserId,
+  role,
+}: {
+  variantId: string;
+  notes: VariantNote[];
+  currentUserId: string;
+  role: UserRole;
+}) {
+  const [draft, setDraft] = useState("");
+  const [pending, start] = useTransition();
+  const toast = useToast();
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    start(async () => {
+      const res = await addVariantNote(variantId, draft);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+        return;
+      }
+      toast.show("Notiz hinzugefügt.", "success");
+      setDraft("");
+    });
+  };
+
+  const onDelete = (noteId: string) => {
+    if (!confirm("Notiz löschen?")) return;
+    start(async () => {
+      const res = await deleteVariantNote(noteId);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+        return;
+      }
+      toast.show("Notiz gelöscht.", "success");
+    });
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+        <MessageSquare className="h-3.5 w-3.5" />
+        Interne Notizen
+        {notes.length > 0 && (
+          <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-foreground">
+            {notes.length}
+          </span>
+        )}
+      </div>
+
+      {notes.length > 0 ? (
+        <ul className="space-y-2">
+          {notes.map((n) => {
+            const authorName = n.author?.full_name ?? "Unbekannt";
+            const canDelete =
+              role === "admin" || n.created_by === currentUserId;
+            return (
+              <li
+                key={n.id}
+                className="group rounded-md border bg-background p-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="font-semibold text-foreground">
+                      {authorName}
+                    </span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-muted-foreground">
+                      {formatRelative(n.created_at)}
+                    </span>
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(n.id)}
+                      disabled={pending}
+                      aria-label="Notiz löschen"
+                      title="Löschen"
+                      className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-foreground/90">
+                  {n.body}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Noch keine Notizen. Nutze das Feld unten, um etwas für das Team zu
+          hinterlassen.
+        </p>
+      )}
+
+      <form onSubmit={submit} className="space-y-2">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="z.B. 'Abklären mit Dr. Müller' oder 'Hook passt noch nicht'"
+          rows={2}
+          className="resize-none text-sm"
+          disabled={pending}
+          maxLength={2000}
+        />
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-[10px] text-muted-foreground">
+            {draft.length}/2000
+          </span>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={pending || !draft.trim()}
+          >
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <MessageSquare className="h-3.5 w-3.5" />
+            )}
+            Notiz hinzufügen
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

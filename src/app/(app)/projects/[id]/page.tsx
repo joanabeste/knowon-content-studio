@@ -8,8 +8,9 @@ import {
   CHANNEL_LABELS,
   type Channel,
   type ContentProject,
-  type ContentVariant,
+  type ContentVariantWithPeople,
   type ImageRow,
+  type VariantNote,
   type VariantStatus,
 } from "@/lib/supabase/types";
 import { ProjectDetailClient } from "./project-detail-client";
@@ -22,7 +23,7 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase, profile } = await requireUser();
+  const { supabase, user, profile } = await requireUser();
 
   const { data: project } = await supabase
     .from("content_projects")
@@ -32,18 +33,45 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound();
 
+  // Join author + reviewer profile names so the card can show
+  // attribution without extra round-trips
   const { data: variantsData } = await supabase
     .from("content_variants")
-    .select("*")
+    .select(
+      `*,
+       author:created_by(full_name),
+       reviewer:reviewed_by(full_name)`,
+    )
     .eq("project_id", id)
     .order("version", { ascending: false });
 
-  const variants = (variantsData ?? []) as ContentVariant[];
+  const variants = (variantsData ?? []) as ContentVariantWithPeople[];
 
   // Latest version per channel
-  const latestByChannel = new Map<Channel, ContentVariant>();
+  const latestByChannel = new Map<Channel, ContentVariantWithPeople>();
   for (const v of variants) {
     if (!latestByChannel.has(v.channel)) latestByChannel.set(v.channel, v);
+  }
+
+  // Fetch all notes for the visible variants in one query. Grouped
+  // client-side because variant_notes is a small table and this keeps
+  // the page query count flat.
+  const visibleVariantIds = Array.from(latestByChannel.values()).map(
+    (v) => v.id,
+  );
+  let notesByVariant = new Map<string, VariantNote[]>();
+  if (visibleVariantIds.length > 0) {
+    const { data: notesData } = await supabase
+      .from("variant_notes")
+      .select(`*, author:created_by(full_name)`)
+      .in("variant_id", visibleVariantIds)
+      .order("created_at", { ascending: true });
+    notesByVariant = new Map();
+    for (const n of (notesData ?? []) as VariantNote[]) {
+      const list = notesByVariant.get(n.variant_id) ?? [];
+      list.push(n);
+      notesByVariant.set(n.variant_id, list);
+    }
   }
 
   // Load images for this project
@@ -139,8 +167,10 @@ export default async function ProjectDetailPage({
         variants={Array.from(latestByChannel.values()).filter((v) =>
           channels.includes(v.channel),
         )}
+        notesByVariant={Object.fromEntries(notesByVariant)}
         images={imagesWithUrls}
         role={profile.role}
+        currentUserId={user.id}
       />
     </div>
   );
