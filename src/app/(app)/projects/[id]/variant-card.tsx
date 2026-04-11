@@ -212,7 +212,13 @@ export function VariantCard({
     const parts: string[] = [body];
     if (variant.channel === "linkedin" || variant.channel === "instagram") {
       const hashtags = (metadata.hashtags as string[] | undefined) ?? [];
-      if (hashtags.length) parts.push(hashtags.map((h) => `#${h}`).join(" "));
+      if (hashtags.length) {
+        // Strip any existing leading `#` so we don't end up with `##tag`
+        // when GPT already prefixed the value.
+        parts.push(
+          hashtags.map((h) => `#${h.replace(/^#+/, "")}`).join(" "),
+        );
+      }
     }
     if (variant.channel === "newsletter") {
       const subject = (metadata.subject as string | undefined) ?? "";
@@ -457,16 +463,18 @@ export function VariantCard({
 
         {(variant.channel === "linkedin" || variant.channel === "instagram") && (
           <div className="space-y-2">
-            <Label className="text-xs">Hashtags</Label>
+            <Label className="text-xs">Mögliche Hashtags</Label>
             {editing ? (
               <Input
-                value={((metadata.hashtags as string[]) || []).join(" ")}
+                value={((metadata.hashtags as string[]) || [])
+                  .map((h) => h.replace(/^#+/, ""))
+                  .join(" ")}
                 onChange={(e) =>
                   setMetadata({
                     ...metadata,
                     hashtags: e.target.value
                       .split(/\s+/)
-                      .map((s) => s.replace(/^#/, ""))
+                      .map((s) => s.replace(/^#+/, ""))
                       .filter(Boolean),
                   })
                 }
@@ -474,11 +482,17 @@ export function VariantCard({
               />
             ) : (
               <div className="flex flex-wrap gap-1">
-                {((metadata.hashtags as string[]) || []).map((h) => (
-                  <Badge key={h} variant="secondary">
-                    #{h}
-                  </Badge>
-                ))}
+                {((metadata.hashtags as string[]) || []).map((h) => {
+                  // GPT sometimes returns hashtags with a leading `#`,
+                  // so we strip any number of them before rendering
+                  // our own. Otherwise badges read "##Augenheilkunde".
+                  const clean = h.replace(/^#+/, "");
+                  return (
+                    <Badge key={clean} variant="secondary">
+                      #{clean}
+                    </Badge>
+                  );
+                })}
               </div>
             )}
           </div>

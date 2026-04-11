@@ -127,15 +127,21 @@ export async function generateVariantsForChannels(
     };
   }
 
+  // GPT sometimes returns hashtags with a leading `#` despite the
+  // schema saying plain strings. Strip any number of leading hashes
+  // so the UI doesn't end up showing "##Augenheilkunde".
+  const cleanHashtags = (tags: string[]): string[] =>
+    tags.map((t) => t.replace(/^#+/, "").trim()).filter(Boolean);
+
   const rows: VariantRow[] = channels.map((channel) => {
     let body = "";
     let metadata: Record<string, unknown> = {};
     if (channel === "linkedin" && parsed.linkedin) {
       body = parsed.linkedin.body;
-      metadata = { hashtags: parsed.linkedin.hashtags };
+      metadata = { hashtags: cleanHashtags(parsed.linkedin.hashtags) };
     } else if (channel === "instagram" && parsed.instagram) {
       body = parsed.instagram.caption;
-      metadata = { hashtags: parsed.instagram.hashtags };
+      metadata = { hashtags: cleanHashtags(parsed.instagram.hashtags) };
     } else if (channel === "eyefox" && parsed.eyefox) {
       body = parsed.eyefox.body;
     } else if (channel === "newsletter" && parsed.newsletter) {
