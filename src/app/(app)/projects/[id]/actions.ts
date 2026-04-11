@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import sharp from "sharp";
 import { requireUser } from "@/lib/auth";
 import { getOpenAI, OPENAI_IMAGE_MODEL } from "@/lib/openai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -86,8 +87,59 @@ export async function setVariantStatus(
 // Blog image actions (gpt-image-1)
 // =====================================================================
 
+// =====================================================================
+// Blog image prompt + brand overlay pipeline
+//
+// Generated images go through TWO steps:
+//  1. OpenAI gpt-image-1 with a HYPERREALISTIC photographic prompt
+//  2. Server-side sharp compositing: a KnowOn brand gradient overlay
+//     (teal → purple → pink) is applied on top, baked into the PNG,
+//     so every generated image carries the KnowOn look out of the box
+// =====================================================================
+
 const BRAND_STYLE_SUFFIX =
-  "Professionelle redaktionelle Bildsprache, hell und modern, medizinisches Umfeld (Augenarztpraxis), klar und ruhig komponiert, keine Textüberlagerung, fotografisch, 3:2 Querformat.";
+  "Hyperrealistische Fotografie, professionell, redaktioneller Editorial-Stil, natürliches Licht, medizinisches Umfeld (Augenarztpraxis, Sprechstunde, Augenuntersuchung, Team-Interaktion), authentisch, klare Komposition mit ruhigem Hintergrund, fotorealistisch mit Tiefenschärfe, 3:2 Querformat. KEINE Textüberlagerung, KEINE Logos, KEINE Illustrationen oder Zeichnungen, KEINE Cartoons. Motiv zentriert so dass ein späterer Farbverlauf-Overlay den Inhalt nicht verdeckt.";
+
+// KnowOn brand colors (must match tailwind.config.ts)
+const KNOWON_TEAL = "#32a4a7";
+const KNOWON_PURPLE = "#392054";
+const KNOWON_PINK = "#ff0054";
+
+// Opacity of each stop — tuned so the photo is clearly visible while
+// the brand tint is unmistakable. If this feels too strong/weak, tweak
+// here only.
+const OVERLAY_OPACITY_TEAL = 0.4;
+const OVERLAY_OPACITY_PURPLE = 0.3;
+const OVERLAY_OPACITY_PINK = 0.45;
+
+function buildBrandOverlaySvg(width: number, height: number): string {
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="knowon-brand" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${KNOWON_TEAL}" stop-opacity="${OVERLAY_OPACITY_TEAL}"/>
+      <stop offset="55%" stop-color="${KNOWON_PURPLE}" stop-opacity="${OVERLAY_OPACITY_PURPLE}"/>
+      <stop offset="100%" stop-color="${KNOWON_PINK}" stop-opacity="${OVERLAY_OPACITY_PINK}"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#knowon-brand)"/>
+</svg>`;
+}
+
+/**
+ * Applies the KnowOn brand-gradient overlay to a raw image buffer.
+ * Returns a PNG buffer of the composited result.
+ */
+async function applyBrandOverlay(raw: Buffer): Promise<Buffer> {
+  const image = sharp(raw);
+  const meta = await image.metadata();
+  const width = meta.width ?? 1536;
+  const height = meta.height ?? 1024;
+  const overlaySvg = Buffer.from(buildBrandOverlaySvg(width, height));
+  return image
+    .composite([{ input: overlaySvg, blend: "over" }])
+    .png()
+    .toBuffer();
+}
 
 type ImageSize = "1024x1024" | "1536x1024";
 
@@ -144,12 +196,24 @@ export async function generateBlogImage(
 
   if (!imageBase64) return { error: "Kein Bild-Payload empfangen." };
 
-  const buffer = Buffer.from(imageBase64, "base64");
+  const rawBuffer = Buffer.from(imageBase64, "base64");
+
+  // Apply KnowOn brand gradient overlay (baked into the PNG)
+  let finalBuffer: Buffer;
+  try {
+    finalBuffer = await applyBrandOverlay(rawBuffer);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[generateBlogImage] overlay composite failed", msg);
+    // Fall back to raw image if overlay fails — better than total failure
+    finalBuffer = rawBuffer;
+  }
+
   const filename = `${projectId}/${crypto.randomUUID()}.png`;
 
   const { error: uploadErr } = await supabase.storage
     .from("generated-images")
-    .upload(filename, buffer, {
+    .upload(filename, finalBuffer, {
       contentType: "image/png",
       cacheControl: "3600",
       upsert: false,

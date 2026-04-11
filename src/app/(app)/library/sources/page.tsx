@@ -13,6 +13,7 @@ import {
 import { WpSyncButton } from "./wp-sync-button";
 import { EyefoxSyncButton } from "./eyefox-sync-button";
 import { UrlImportForm } from "./url-import-form";
+import { ManualAddForm } from "./manual-add-form";
 import { AddSourcesPanel } from "./add-sources-panel";
 import { SourceListItem } from "./source-list-item";
 import { SearchForm } from "./search-form";
@@ -114,12 +115,13 @@ export default async function SourcesPage({ searchParams }: PageProps) {
         </p>
       </div>
 
-      {/* Collapsible source-adding panel (admin only) */}
-      {isAdmin && (
+      {/* Collapsible source-adding panel (editor + admin) */}
+      {canEdit && (
         <AddSourcesPanel
           wpSyncButton={<WpSyncButton />}
           eyefoxSyncButton={<EyefoxSyncButton />}
           urlImportForm={<UrlImportForm />}
+          manualAddForm={<ManualAddForm />}
         />
       )}
 

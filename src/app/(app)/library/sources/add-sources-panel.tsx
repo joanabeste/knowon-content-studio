@@ -16,10 +16,12 @@ export function AddSourcesPanel({
   wpSyncButton,
   eyefoxSyncButton,
   urlImportForm,
+  manualAddForm,
 }: {
   wpSyncButton: React.ReactNode;
   eyefoxSyncButton: React.ReactNode;
   urlImportForm: React.ReactNode;
+  manualAddForm: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -36,15 +38,22 @@ export function AddSourcesPanel({
           Quellen hinzufügen
         </span>
         <ChevronDown
-          className={cn(
-            "h-4 w-4 transition-transform",
-            open && "rotate-180",
-          )}
+          className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
         />
       </Button>
 
       {open && (
         <div className="grid gap-4 md:grid-cols-2">
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Manuell hinzufügen</CardTitle>
+              <CardDescription>
+                Post-Text direkt einfügen — für alles was weder als Feed, Sync
+                noch als öffentliche URL zugänglich ist.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>{manualAddForm}</CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">WordPress-Sync</CardTitle>
