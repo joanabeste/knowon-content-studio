@@ -95,7 +95,7 @@ export default async function IntegrationsPage() {
                 )}
               </CardTitle>
               <CardDescription>
-                Zum Publizieren von Blog-Entwürfen inklusive Featured Image. Du
+                Zum Publizieren von Blog-Entwürfen inklusive Beitragsbild. Du
                 brauchst ein <strong>Application Password</strong> aus deinem
                 WordPress-Account (
                 <span className="font-mono text-xs">

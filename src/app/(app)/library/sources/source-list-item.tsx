@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ChevronDown, Star, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   CHANNEL_LABELS,
   SOURCE_LABELS,
@@ -16,10 +17,14 @@ export function SourceListItem({
   post,
   canEdit,
   canDelete,
+  selected = false,
+  onToggleSelect,
 }: {
   post: SourcePost;
   canEdit: boolean;
   canDelete: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
 
@@ -28,53 +33,76 @@ export function SourceListItem({
       className={cn(
         "group rounded-lg border bg-card transition-colors",
         expanded && "shadow-sm",
+        selected && "border-primary bg-primary/5",
       )}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/30"
-      >
-        {/* Featured star */}
-        <span className="mt-0.5 shrink-0">
-          {post.is_featured ? (
-            <Star className="h-4 w-4 fill-knowon-pink text-knowon-pink" />
-          ) : (
-            <Star className="h-4 w-4 text-muted-foreground/30" />
-          )}
-        </span>
-
-        {/* Main content */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-semibold">
-              {post.title || post.body.slice(0, 80)}
-            </h3>
+      <div className="flex items-stretch">
+        {/* Selection checkbox (left gutter) — only when onToggleSelect is given */}
+        {onToggleSelect && (
+          <div
+            className="flex items-start px-3 pt-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Checkbox
+              checked={selected}
+              onChange={() => onToggleSelect()}
+              aria-label="Auswählen"
+            />
           </div>
-          <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Badge variant="secondary" className="text-[10px]">
-              {CHANNEL_LABELS[post.channel]}
-            </Badge>
-            <Badge variant="muted" className="text-[10px]">
-              {SOURCE_LABELS[post.source]}
-            </Badge>
-            <span>·</span>
-            <span>
-              {post.published_at ? formatDate(post.published_at) : "Ohne Datum"}
-            </span>
-            <span>·</span>
-            <span>{post.body.length.toLocaleString("de-DE")} Zeichen</span>
-          </div>
-        </div>
+        )}
 
-        {/* Caret */}
-        <ChevronDown
+        {/* Expandable main body */}
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
           className={cn(
-            "mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            expanded && "rotate-180",
+            "flex flex-1 items-start gap-3 py-3 pr-4 text-left hover:bg-muted/30",
+            !onToggleSelect && "pl-4",
           )}
-        />
-      </button>
+        >
+          {/* Featured star */}
+          <span className="mt-0.5 shrink-0">
+            {post.is_featured ? (
+              <Star className="h-4 w-4 fill-knowon-pink text-knowon-pink" />
+            ) : (
+              <Star className="h-4 w-4 text-muted-foreground/30" />
+            )}
+          </span>
+
+          {/* Main content */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-sm font-semibold">
+                {post.title || post.body.slice(0, 80)}
+              </h3>
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Badge variant="secondary" className="text-[10px]">
+                {CHANNEL_LABELS[post.channel]}
+              </Badge>
+              <Badge variant="muted" className="text-[10px]">
+                {SOURCE_LABELS[post.source]}
+              </Badge>
+              <span>·</span>
+              <span>
+                {post.published_at
+                  ? formatDate(post.published_at)
+                  : "Ohne Datum"}
+              </span>
+              <span>·</span>
+              <span>{post.body.length.toLocaleString("de-DE")} Zeichen</span>
+            </div>
+          </div>
+
+          {/* Caret */}
+          <ChevronDown
+            className={cn(
+              "mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              expanded && "rotate-180",
+            )}
+          />
+        </button>
+      </div>
 
       {/* Expanded body */}
       {expanded && (

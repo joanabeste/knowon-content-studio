@@ -15,7 +15,7 @@ import { EyefoxSyncButton } from "./eyefox-sync-button";
 import { UrlImportForm } from "./url-import-form";
 import { ManualAddForm } from "./manual-add-form";
 import { AddSourcesPanel } from "./add-sources-panel";
-import { SourceListItem } from "./source-list-item";
+import { SourcesList } from "./sources-list";
 import { SearchForm } from "./search-form";
 
 const PAGE_SIZE = 20;
@@ -201,26 +201,22 @@ export default async function SourcesPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* List */}
-      <div className="space-y-1.5">
-        {posts.map((p) => (
-          <SourceListItem
-            key={p.id}
-            post={p}
-            canEdit={canEdit}
-            canDelete={isAdmin}
-          />
-        ))}
-        {!posts.length && (
-          <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              {q
-                ? `Keine Treffer für "${q}".`
-                : 'Keine Einträge für diesen Filter. Oben „Quellen hinzufügen" öffnen, um welche anzulegen.'}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* List with selection + bulk actions */}
+      {posts.length > 0 ? (
+        <SourcesList
+          posts={posts}
+          canEdit={canEdit}
+          canDelete={isAdmin}
+        />
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            {q
+              ? `Keine Treffer für "${q}".`
+              : 'Keine Einträge für diesen Filter. Oben „Quellen hinzufügen" öffnen, um welche anzulegen.'}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pager */}
       {totalPages > 1 && (

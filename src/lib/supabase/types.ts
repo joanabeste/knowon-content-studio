@@ -18,7 +18,7 @@ export const CHANNEL_LABELS: Record<Channel, string> = {
   instagram: "Instagram",
   eyefox: "Eyefox",
   newsletter: "Newsletter",
-  blog: "Blog",
+  blog: "WordPress",
 };
 
 export interface Profile {

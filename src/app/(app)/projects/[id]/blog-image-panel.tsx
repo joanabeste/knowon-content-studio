@@ -101,7 +101,7 @@ export function BlogImagePanel({
         setShowPromptEditor(false);
         toast.show(
           isFirst
-            ? "Bild hochgeladen und als Featured markiert."
+            ? "Bild hochgeladen und als Beitragsbild markiert."
             : "Bild hochgeladen.",
           "success",
         );
@@ -149,7 +149,7 @@ export function BlogImagePanel({
         setShowPromptEditor(false);
         toast.show(
           isFirst
-            ? "Bild erzeugt und als Featured markiert."
+            ? "Bild erzeugt und als Beitragsbild markiert."
             : "Bild erzeugt.",
           "success",
         );
@@ -168,7 +168,7 @@ export function BlogImagePanel({
     setImages((prev) =>
       prev.map((img) => ({ ...img, is_featured: img.id === imageId })),
     );
-    toast.show("Als Featured Image markiert.", "success");
+    toast.show("Als Beitragsbild markiert.", "success");
   };
 
   const onDelete = async (imageId: string) => {
@@ -327,7 +327,7 @@ export function BlogImagePanel({
                   variant="default"
                   className="absolute left-2 top-2 shadow"
                 >
-                  <Star className="mr-1 h-3 w-3 fill-current" /> Featured
+                  <Star className="mr-1 h-3 w-3 fill-current" /> Beitragsbild
                 </Badge>
               )}
               <div className="flex items-center justify-between gap-2 p-2">
@@ -341,6 +341,7 @@ export function BlogImagePanel({
                         variant="ghost"
                         size="sm"
                         onClick={() => onFeature(img.id)}
+                        title="Als Beitragsbild markieren"
                       >
                         <Star className="h-3.5 w-3.5" />
                       </Button>

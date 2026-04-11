@@ -257,6 +257,60 @@ export async function importFromUrls(formData: FormData) {
 // =====================================================================
 // Row-level actions
 // =====================================================================
+// =====================================================================
+// Bulk actions — delete / feature multiple at once
+// =====================================================================
+
+export async function bulkDeleteSourcePosts(ids: string[]) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin") {
+    return { error: "Nur Admin darf löschen." };
+  }
+  if (!ids.length) return { ok: true, deleted: 0 };
+  if (ids.length > 500) return { error: "Zu viele Einträge auf einmal." };
+
+  const { error, count } = await supabase
+    .from("source_posts")
+    .delete({ count: "exact" })
+    .in("id", ids);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "source_posts_bulk_delete",
+    payload: { count: count ?? ids.length },
+  });
+
+  revalidatePath("/library/sources");
+  return { ok: true, deleted: count ?? ids.length };
+}
+
+export async function bulkSetFeatured(ids: string[], featured: boolean) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor." };
+  }
+  if (!ids.length) return { ok: true, updated: 0 };
+  if (ids.length > 500) return { error: "Zu viele Einträge auf einmal." };
+
+  const { error, count } = await supabase
+    .from("source_posts")
+    .update({ is_featured: featured }, { count: "exact" })
+    .in("id", ids);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: featured
+      ? "source_posts_bulk_featured"
+      : "source_posts_bulk_unfeatured",
+    payload: { count: count ?? ids.length },
+  });
+
+  revalidatePath("/library/sources");
+  return { ok: true, updated: count ?? ids.length };
+}
+
 export async function toggleFeatured(id: string) {
   const { supabase, profile } = await requireUser();
   if (profile.role !== "admin" && profile.role !== "editor") {

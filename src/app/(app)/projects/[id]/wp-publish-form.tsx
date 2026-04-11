@@ -196,8 +196,8 @@ export function WpPublishForm({
 
       <p className="text-[11px] text-muted-foreground">
         {isUpdate
-          ? "Titel, Slug, Meta-Description, Tags und Featured Image werden im bestehenden WP-Post aktualisiert."
-          : "Titel, Slug, Meta-Description, Tags und Featured Image werden an WordPress übergeben."}
+          ? "Titel, Slug, Meta-Description, Tags und Beitragsbild werden im bestehenden WP-Post aktualisiert."
+          : "Titel, Slug, Meta-Description, Tags und Beitragsbild werden an WordPress übergeben."}
         {mode === "future" &&
           " Im Modus Geplant veröffentlicht WP automatisch zum angegebenen Zeitpunkt."}
       </p>

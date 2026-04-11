@@ -20,7 +20,7 @@ const CHANNEL_META: Record<
   instagram: { icon: Instagram, description: "Caption + Hashtags" },
   eyefox: { icon: Newspaper, description: "Partnerseiten-Text, sachlich" },
   newsletter: { icon: Mail, description: "Betreff + HTML-Body" },
-  blog: { icon: FileText, description: "SEO-Blogpost mit Bild-Option" },
+  blog: { icon: FileText, description: "SEO-Artikel mit Beitragsbild" },
 };
 
 export function ChannelPicker({
