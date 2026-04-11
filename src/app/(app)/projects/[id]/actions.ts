@@ -52,11 +52,18 @@ export async function setVariantStatus(
 ) {
   const { supabase, user, profile } = await requireUser();
 
-  if (status === "approved" && profile.role === "editor") {
-    return { error: "Nur Reviewer/Admin können freigeben." };
-  }
-  if (status === "published" && profile.role === "reviewer") {
+  // Admins + editors can set any status manually (including going
+  // backwards from published → draft). Reviewers can set the review
+  // workflow statuses but not mark something as published.
+  if (profile.role === "reviewer" && status === "published") {
     return { error: "Reviewer können nicht veröffentlichen." };
+  }
+  if (
+    profile.role !== "admin" &&
+    profile.role !== "editor" &&
+    profile.role !== "reviewer"
+  ) {
+    return { error: "Kein Zugriff." };
   }
 
   const { data: variant } = await supabase

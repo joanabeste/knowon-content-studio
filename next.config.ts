@@ -18,6 +18,17 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.knowon.de" },
     ],
   },
+  // Silence webpack's "Serializing big strings" performance hint from
+  // its PackFileCacheStrategy. It's a build-cache optimization warning
+  // triggered by pdf-parse / sharp internals and doesn't affect
+  // correctness. Errors still show.
+  webpack(config) {
+    config.infrastructureLogging = {
+      ...config.infrastructureLogging,
+      level: "error",
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
