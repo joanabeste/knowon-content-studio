@@ -1,11 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireRole, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { fetchAndParseFeed } from "@/lib/rss/parser";
 import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import type { Channel, ContentFeed, SourcePostSource } from "@/lib/supabase/types";
+
+/**
+ * Both a cookie-bound user client and the service-role admin client
+ * are passed into `doSyncFeed`, so we use the loosest Supabase
+ * client type that both share. The actions within only touch a few
+ * tables and stay away from schema-specific generics.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FeedSyncClient = SupabaseClient<any, "public", any>;
 
 const VALID_CHANNELS: Channel[] = [
   "linkedin",
@@ -92,8 +102,7 @@ export async function syncFeed(feedId: string) {
  */
 export async function doSyncFeed(
   feedId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: any,
+  client: FeedSyncClient,
   actorId: string | null,
 ): Promise<
   | { error: string }

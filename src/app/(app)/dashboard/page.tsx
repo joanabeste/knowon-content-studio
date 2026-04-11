@@ -33,12 +33,30 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(5);
 
-  const { data: reviewQueue } = await supabase
+  // Aliased join: pull the parent project's topic along with each
+  // review-queue variant. Aliasing to `project` keeps the client
+  // code decoupled from the actual relation name.
+  const { data: reviewQueueRaw } = await supabase
     .from("content_variants")
-    .select("id, project_id, channel, status, created_at, content_projects(topic)")
+    .select(
+      "id, project_id, channel, status, created_at, project:content_projects(topic)",
+    )
     .eq("status", "in_review")
     .order("created_at", { ascending: false })
     .limit(5);
+
+  type ReviewQueueItem = {
+    id: string;
+    project_id: string;
+    channel: Channel;
+    status: VariantStatus;
+    created_at: string;
+    // PostgREST may return the joined row as a single object OR a
+    // single-element array depending on how it detects the
+    // relationship. Handle both defensively.
+    project: { topic: string } | { topic: string }[] | null;
+  };
+  const reviewQueue = (reviewQueueRaw ?? []) as ReviewQueueItem[];
 
   // Aggregate variant status counts
   const { data: statusData } = await supabase
@@ -160,13 +178,12 @@ export default async function DashboardPage() {
             <CardDescription>Warten auf Freigabe</CardDescription>
           </CardHeader>
           <CardContent>
-            {reviewQueue && reviewQueue.length > 0 ? (
+            {reviewQueue.length > 0 ? (
               <ul className="divide-y">
                 {reviewQueue.map((v) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const topic = (v as any).content_projects?.topic as
-                    | string
-                    | undefined;
+                  const topic = Array.isArray(v.project)
+                    ? v.project[0]?.topic
+                    : v.project?.topic;
                   return (
                     <li key={v.id}>
                       <Link

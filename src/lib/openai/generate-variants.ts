@@ -8,6 +8,7 @@ import { buildSystemPrompt, buildUserPrompt } from "./prompts";
 import { getOpenAI, OPENAI_TEXT_MODEL } from "./client";
 import { loadWpCredentials } from "@/lib/wordpress/credentials";
 import { fetchWordpressCategoryNames } from "@/lib/wordpress/client";
+import { cleanHashtags } from "@/lib/hashtags";
 import type {
   BrandVoice,
   Channel,
@@ -126,12 +127,6 @@ export async function generateVariantsForChannels(
         "Generierung fehlgeschlagen. Prüfe OPENAI_API_KEY & Modell, oder versuche es erneut.",
     };
   }
-
-  // GPT sometimes returns hashtags with a leading `#` despite the
-  // schema saying plain strings. Strip any number of leading hashes
-  // so the UI doesn't end up showing "##Augenheilkunde".
-  const cleanHashtags = (tags: string[]): string[] =>
-    tags.map((t) => t.replace(/^#+/, "").trim()).filter(Boolean);
 
   const rows: VariantRow[] = channels.map((channel) => {
     let body = "";

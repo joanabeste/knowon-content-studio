@@ -44,8 +44,7 @@ export async function GET(req: NextRequest) {
 
   const results = [];
   for (const f of feeds) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await doSyncFeed(f.id, admin as any, null);
+    const r = await doSyncFeed(f.id, admin, null);
     results.push({
       feed: f.name,
       ...r,

@@ -81,15 +81,19 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("created_at", { ascending: false });
 
-  // Generate signed URLs for images (service role bypasses RLS for consistency)
+  // Generate signed URLs for images in parallel. `Promise.all`
+  // over the image list means one round-trip per image, not
+  // one-per-image-sequentially — on a project with 10 images
+  // this goes from ~10× sequential latency to a single wave.
   const admin = getSupabaseAdmin();
-  const imagesWithUrls: ImageWithUrl[] = [];
-  for (const img of (imagesData ?? []) as ImageRow[]) {
-    const { data: signed } = await admin.storage
-      .from("generated-images")
-      .createSignedUrl(img.storage_path, 3600);
-    imagesWithUrls.push({ ...img, signedUrl: signed?.signedUrl ?? null });
-  }
+  const imagesWithUrls: ImageWithUrl[] = await Promise.all(
+    ((imagesData ?? []) as ImageRow[]).map(async (img) => {
+      const { data: signed } = await admin.storage
+        .from("generated-images")
+        .createSignedUrl(img.storage_path, 3600);
+      return { ...img, signedUrl: signed?.signedUrl ?? null };
+    }),
+  );
 
   const p = project as ContentProject;
   const canDelete = profile.role === "admin" || p.created_by === profile.id;
