@@ -14,6 +14,9 @@ import {
   Send,
   Users,
   Lightbulb,
+  Brain,
+  ShieldCheck,
+  MessagesSquare,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -185,6 +188,132 @@ const SECTIONS: HelpSection[] = [
       `Markiere deine besten echten Posts in der Inspirations-Bibliothek als „Featured". GPT nimmt sie bevorzugt als Few-Shot-Beispiele.`,
       `Freigegebene Varianten werden automatisch zu Featured-Quellen — je mehr du nutzt und freigibst, desto besser passt der Output auf deinen Stil. Das System lernt aus deiner redaktionellen Arbeit.`,
       `Wenn ein Output nicht passt: kleine Änderung am Briefing (spezifischer Hook, anderes Fakt) und neu generieren. Schneller als den Text manuell umzuschreiben.`,
+    ],
+  },
+  {
+    id: "ki-training",
+    icon: Brain,
+    title: "Wie die KI deinen Stil lernt",
+    summary:
+      "Kein klassisches Training — sondern ein System, das mit jeder Freigabe besser wird.",
+    steps: [
+      {
+        heading: "Das Grundprinzip",
+        body: `GPT wird NICHT im klassischen Sinn fine-getuned. Stattdessen baut das System bei jeder Generierung frisch einen Prompt zusammen, der GPT erklärt „so klingt KnowOn". Je besser dieser Prompt, desto besser der Output. Alles was du in Brand Voice, Bibliothek und Wissen einträgst, landet als Teil dieses Prompts in jeder einzelnen Generierung.`,
+      },
+      {
+        heading: "Säule 1: Brand Voice (hart verankert)",
+        body: `Tonfall, Zielgruppe, Do's/Don'ts und vor allem die „Tonfall-Beispiele" werden IMMER in den System-Prompt gesetzt, bei jeder Generierung. Das ist der stabile Kern — eine Art hart verdrahtete Stil-Leitplanke, die GPT nie vergisst.`,
+      },
+      {
+        heading: "Säule 2: Inspirations-Bibliothek (dynamische Beispiele)",
+        body: `Aus der Bibliothek werden pro Generierung die 4 relevantesten Posts PRO KANAL ausgewählt — sortiert nach Featured-Status und Aktualität. GPT liest sie als „so haben wir sowas in der Vergangenheit gemacht" und imitiert Rhythmus, Satzbau und Wortwahl. Es kopiert NICHT wörtlich (das ist explizit im Prompt verboten).`,
+      },
+      {
+        heading: "Säule 3: Kontext-Dokumente (Faktenbasis)",
+        body: `Alle aktiven Dokumente aus der Bibliothek „Wissen" landen als zusätzlicher Kontext im Prompt. GPT kennt damit interne Details, Produktdaten, Studien — Dinge, die es aus seinem eigenen Training nicht wissen kann.`,
+      },
+      {
+        heading: `Der Feedback-Loop — das eigentliche „Training"`,
+        body: `Sobald eine Variante den Status „Freigegeben" bekommt, wird sie automatisch als Featured-Post in die Inspirations-Bibliothek geschrieben. Damit wird sie ab sofort als Few-Shot-Beispiel in zukünftige Generierungen aufgenommen. Effekt: je mehr du redaktionell freigibst, desto stärker lernt das System deinen echten Stil — weil GPT immer mehr deiner bereits geprüften Texte als Referenz sieht, statt nur importierter Altbestand.`,
+      },
+      {
+        heading: "Warum kein klassisches Fine-Tuning?",
+        body: `Fine-Tuning würde mindestens 200+ geprüfte Beispiele verlangen, wäre teuer, nicht erklärbar und bei jeder Brand-Voice-Änderung neu nötig. Der aktuelle Ansatz ist vollständig transparent (du siehst exakt, was GPT bekommt), sofort änderbar (Brand Voice-Update = nächste Generierung nutzt die neue Version) und kostet nichts Extra.`,
+      },
+      {
+        heading: "So machst du es besser, schneller",
+        body: `(1) Tonfall-Beispiele in der Brand Voice pflegen. (2) Die besten alten Posts in der Bibliothek als Featured markieren. (3) Konsequent freigeben statt abbrechen — jeder „Freigegeben"-Klick bringt das System einen Schritt näher an deinen Stil.`,
+      },
+    ],
+  },
+  {
+    id: "data",
+    icon: ShieldCheck,
+    title: "Daten & Technik im Hintergrund",
+    summary:
+      "Wo deine Daten liegen, wer sie sieht und was an externe Dienste geht.",
+    steps: [
+      {
+        heading: "Wo liegen die Daten?",
+        body: `Sämtliche Daten — Projekte, Varianten, Quellen, Notizen, Bilder, Brand Voice, User-Konten — leben in Supabase (Postgres + Storage), hosted in der EU. Die Anwendung selbst läuft auf Vercel. Beides sind professionelle Anbieter mit DSGVO-konformem Betrieb.`,
+      },
+      {
+        heading: "Was wird an OpenAI gesendet?",
+        body: `Bei jeder Generierung schickt der Server einen Prompt an OpenAI, der enthält: dein Thema, dein Briefing, die Brand Voice (Tonfall, Do's/Don'ts, Beispiele), bis zu 30 ausgewählte Inspirations-Posts pro Kanal, alle aktiven Kontext-Dokumente und die Kanal-Regeln. Kein Passwort, keine Auth-Tokens, keine WordPress-Credentials, keine Daten anderer Teams oder User.`,
+      },
+      {
+        heading: "Speichert OpenAI meine Daten?",
+        body: `Bei der OpenAI-API gilt: Anfragen werden standardmäßig 30 Tage zum Missbrauchs-Monitoring gespeichert, danach gelöscht. Deine Inhalte werden NICHT fürs Modell-Training verwendet — das ist der entscheidende Unterschied zur ChatGPT-Consumer-App. Siehe die OpenAI Enterprise Data Privacy Policy.`,
+      },
+      {
+        heading: "Wie sind die WordPress-Zugangsdaten gespeichert?",
+        body: `Die WP-Application-Password wird AES-256-GCM verschlüsselt in der DB abgelegt (Key via Env-Variable INTEGRATIONS_ENCRYPTION_KEY). Beim Publizieren wird sie kurz entschlüsselt, an die WP-REST-API gesendet, dann wieder verworfen. Keine Klartext-Speicherung.`,
+      },
+      {
+        heading: "Wer kann was sehen (RLS)?",
+        body: `Alle Schreib-Zugriffe laufen durch Server Actions, die den User + die Rolle prüfen. Zusätzlich hat Supabase Row Level Security auf den sensiblen Tabellen. Admins sehen alles, Editoren sehen alle Projekte und können sie bearbeiten, Reviewer können Varianten prüfen aber nicht selbst editieren.`,
+      },
+      {
+        heading: "RSS-Sync & Cron",
+        body: `Ein Vercel-Cron-Job läuft täglich um 06:00 UTC und holt neue Einträge aus allen aktiven RSS-Feeds. Der Cron-Endpoint ist mit einem CRON_SECRET gesichert — unautorisierte Aufrufe werden mit 401 abgewiesen. Manueller „Sync all" funktioniert jederzeit über Einstellungen → Integrationen.`,
+      },
+      {
+        heading: "URL-Importer & SSRF-Schutz",
+        body: `Wenn du eine URL in die Bibliothek importierst, prüft der Server vorher, dass sie kein internes Ziel ist (keine 127.x, 10.x, 192.168.x, 169.254.x usw.) — sonst könnte ein Team-User versehentlich interne Cloud-Metadata-Endpunkte abrufen lassen. Das ist ein Schutz gegen SSRF-Angriffe.`,
+      },
+    ],
+  },
+  {
+    id: "faq",
+    icon: MessagesSquare,
+    title: "Häufige Fragen",
+    summary: "Schnelle Antworten auf typische Alltags-Fragen.",
+    steps: [
+      {
+        heading: "Warum ist das Ergebnis jedes Mal anders, wenn ich neu generiere?",
+        body: `Das ist Absicht. GPT läuft mit Temperatur 0.8, also mit bewusster Varianz — sonst würde jede Generierung deterministisch denselben Text produzieren. Wenn dir ein Ergebnis nicht passt: kleine Änderung am Briefing und neu laufen lassen. Oft reicht ein zweiter Durchlauf mit unverändertem Input schon für einen besseren Treffer.`,
+      },
+      {
+        heading: "Wie viel kostet eine Generierung?",
+        body: `Text-Generierung für alle 5 Kanäle zusammen: ~1–4 Cent (je nach Prompt-Länge). Ein KI-generiertes Blog-Beitragsbild bei quality=high: ~15–25 Cent. Das Haupt-Budget geht in Bilder, nicht Text. Für ~20 Projekte pro Monat sind das üblicherweise <5 €.`,
+      },
+      {
+        heading: "Warum dauert die Bildgenerierung so lange?",
+        body: `gpt-image-1 läuft mit quality=high — das ist langsamer als „medium" oder „auto", liefert dafür deutlich realistischere Fotos. Typisch: 30–60 Sekunden. Danach läuft noch die serverseitige Overlay-Komposition (Gradient + Logo), die ~1–2 Sekunden dauert.`,
+      },
+      {
+        heading: "Werden meine Inhalte zum Trainieren des GPT-Modells verwendet?",
+        body: `Nein. Die OpenAI-API (die wir hier nutzen) trainiert standardmäßig NICHT mit den Request-Daten. Das ist der wichtige Unterschied zur ChatGPT-Consumer-App. Deine Briefings und generierten Texte bleiben intern.`,
+      },
+      {
+        heading: "Was passiert, wenn ich eine freigegebene Variante lösche?",
+        body: `Die Variante und ihre Notizen sind weg. ABER: der Featured-Eintrag, der beim Freigeben automatisch in die Inspirations-Bibliothek geschrieben wurde, bleibt bestehen — er hat eine eigene Identität in source_posts und ist vom Original entkoppelt. Du müsstest ihn separat aus der Bibliothek löschen, falls gewünscht.`,
+      },
+      {
+        heading: "Können zwei Leute gleichzeitig dasselbe Projekt bearbeiten?",
+        body: `Technisch ja, aber es gibt kein Locking — wer zuletzt speichert, gewinnt. Für ein kleines Team ist das in der Praxis kein Problem. Nutze die internen Notizen auf jeder Variant-Card, um Arbeit untereinander asynchron abzustimmen („Ich nehme mir LinkedIn, schau du auf Instagram").`,
+      },
+      {
+        heading: `Warum sehe ich die „Einstellungen"-Sektion nicht?`,
+        body: `Die Sektion ist nur für Admins sichtbar. Wenn du Editor oder Reviewer bist, fehlt sie komplett — das ist so gewollt. Frag einen Admin, dich hochzustufen, falls du Brand Voice, Team oder Integrationen pflegen willst.`,
+      },
+      {
+        heading: "Der Cron-Job läuft, aber ich sehe keine neuen Einträge — warum?",
+        body: `Wahrscheinlichste Ursachen: (1) der Feed hat tatsächlich keine neuen Posts seit dem letzten Sync; (2) der Feed ist „Inaktiv" (Schalter in Integrationen); (3) CRON_SECRET ist in Vercel nicht gesetzt, dann lehnt der Endpoint alle Aufrufe ab. Check in Integrationen den Zeitstempel „Letzter Sync" pro Feed.`,
+      },
+      {
+        heading: "Warum wird das Logo bei Bildern immer unten rechts eingeblendet?",
+        body: `Die Bildpipeline ist so gebaut: erst generiert gpt-image-1 das Rohbild, dann legt der Server den KnowOn-Gradient-Overlay (lila → teal) darüber, dann das hochgeladene Brand-Logo 1:1 in die rechte untere Ecke. Keine Umfärbung, Transparenz bleibt erhalten. Willst du ein anderes Logo? Einfach in Brand Voice neu hochladen — ab der nächsten Generierung aktiv.`,
+      },
+      {
+        heading: "Wie setze ich die Brand Voice zurück?",
+        body: `Es gibt zwei Wege: (1) manuell alle Felder in Einstellungen → Brand Voice leeren/anpassen und speichern; (2) das mitgelieferte Seed-Script ausführen (\`npm run seed:brand\`) — das setzt die Brand Voice auf den mitgelieferten KnowOn-Default zurück.`,
+      },
+      {
+        heading: "Kann ich einzelne Kanäle global deaktivieren?",
+        body: `Im Moment nein — die Kanäle sind hartkodiert. Du kannst aber auf der Erzeugen-Seite für jedes einzelne Projekt nur einen Teil der Kanäle auswählen. Wenn du z.B. Eyefox nicht mehr benutzt, wähle ihn einfach nie an.`,
+      },
     ],
   },
 ];
