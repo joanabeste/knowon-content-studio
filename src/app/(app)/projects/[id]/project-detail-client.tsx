@@ -7,6 +7,7 @@ import {
   Mail,
   FileText,
   Newspaper,
+  Plus,
 } from "lucide-react";
 import {
   Tabs,
@@ -15,6 +16,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  ALL_CHANNELS,
   CHANNEL_LABELS,
   type Channel,
   type ContentVariant,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/supabase/types";
 import { VariantCard } from "./variant-card";
 import { BlogImagePanel, type ImageWithUrl } from "./blog-image-panel";
+import { AddChannelsSection } from "./add-channels-section";
 
 const CHANNEL_ICONS: Record<
   Channel,
@@ -33,6 +36,8 @@ const CHANNEL_ICONS: Record<
   newsletter: Mail,
   blog: FileText,
 };
+
+const ADD_TAB = "__add__";
 
 export function ProjectDetailClient({
   projectId,
@@ -54,38 +59,11 @@ export function ProjectDetailClient({
     return m;
   }, [variants]);
 
-  const defaultTab = channels[0] ?? "blog";
+  const canAddChannels = role === "admin" || role === "editor";
+  const missingChannels = ALL_CHANNELS.filter((c) => !channels.includes(c));
+  const showAddTab = canAddChannels && missingChannels.length > 0;
 
-  // Use tabs when >= 3 channels, stacked otherwise
-  const useTabs = channels.length >= 3;
-
-  if (!useTabs) {
-    return (
-      <div className="grid gap-4">
-        {channels.map((ch) => {
-          const variant = variantByChannel.get(ch);
-          if (!variant) return null;
-          return (
-            <div key={ch} className="space-y-4">
-              {ch === "blog" && (
-                <BlogImagePanel
-                  projectId={projectId}
-                  blogTitle={(variant.metadata?.title as string) ?? null}
-                  initialImages={images}
-                  role={role}
-                />
-              )}
-              <VariantCard
-                variant={variant}
-                channelLabel={CHANNEL_LABELS[ch]}
-                role={role}
-              />
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+  const defaultTab = channels[0] ?? (showAddTab ? ADD_TAB : "blog");
 
   return (
     <Tabs defaultValue={defaultTab}>
@@ -111,6 +89,15 @@ export function ProjectDetailClient({
             </TabsTrigger>
           );
         })}
+        {showAddTab && (
+          <TabsTrigger
+            value={ADD_TAB}
+            className="border border-dashed border-muted-foreground/40 text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary"
+          >
+            <Plus className="h-4 w-4" />
+            Kanal hinzufügen
+          </TabsTrigger>
+        )}
       </TabsList>
 
       {channels.map((ch) => {
@@ -141,6 +128,15 @@ export function ProjectDetailClient({
           </TabsContent>
         );
       })}
+
+      {showAddTab && (
+        <TabsContent value={ADD_TAB}>
+          <AddChannelsSection
+            projectId={projectId}
+            existingChannels={channels}
+          />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }
