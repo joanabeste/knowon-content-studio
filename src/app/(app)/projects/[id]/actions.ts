@@ -8,7 +8,13 @@ import { getOpenAI, OPENAI_IMAGE_MODEL } from "@/lib/openai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { loadWpCredentials } from "@/lib/wordpress/credentials";
 import { uploadMedia, createPost, updatePost } from "@/lib/wordpress/client";
-import type { ContentVariant, VariantStatus } from "@/lib/supabase/types";
+import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
+import {
+  ALL_CHANNELS,
+  type Channel,
+  type ContentVariant,
+  type VariantStatus,
+} from "@/lib/supabase/types";
 
 // =====================================================================
 // Variant body / status actions
@@ -666,4 +672,142 @@ export async function deleteProject(projectId: string) {
   revalidatePath("/projects");
   revalidatePath("/dashboard");
   redirect("/projects");
+}
+
+// =====================================================================
+// Delete a single variant + add new channels to existing project
+// =====================================================================
+
+export async function deleteVariant(variantId: string) {
+  const { supabase, user, profile } = await requireUser();
+
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("id, project_id, channel, project:content_projects(created_by)")
+    .eq("id", variantId)
+    .single();
+
+  if (!variant) return { error: "Variante nicht gefunden." };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const project = (variant as any).project as { created_by: string | null } | null;
+  const isOwner = project?.created_by === user.id;
+  if (profile.role !== "admin" && !isOwner) {
+    return { error: "Nur Admin oder Ersteller*in darf Varianten löschen." };
+  }
+
+  // Cascade: deleting the variant row removes all its versions via the
+  // unique (project_id, channel, version) — but we only delete the
+  // specific version. Drop ALL versions of this channel in this project
+  // so the channel is truly gone.
+  const { error: delErr } = await supabase
+    .from("content_variants")
+    .delete()
+    .eq("project_id", variant.project_id)
+    .eq("channel", variant.channel);
+  if (delErr) return { error: delErr.message };
+
+  // Also remove this channel from requested_channels so aggregation UI
+  // stops counting it.
+  const { data: proj } = await supabase
+    .from("content_projects")
+    .select("requested_channels")
+    .eq("id", variant.project_id)
+    .single();
+
+  if (proj?.requested_channels) {
+    const nextChannels = (proj.requested_channels as Channel[]).filter(
+      (c) => c !== variant.channel,
+    );
+    await supabase
+      .from("content_projects")
+      .update({ requested_channels: nextChannels })
+      .eq("id", variant.project_id);
+  }
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "variant_deleted",
+    target_type: "content_variant",
+    target_id: variantId,
+    payload: { channel: variant.channel, project_id: variant.project_id },
+  });
+
+  revalidatePath(`/projects/${variant.project_id}`);
+  return { ok: true };
+}
+
+export async function addChannelsToProject(
+  projectId: string,
+  channels: Channel[],
+) {
+  const { supabase, user, profile } = await requireUser();
+
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen Kanäle hinzufügen." };
+  }
+
+  const validChannels = channels.filter((c) =>
+    (ALL_CHANNELS as string[]).includes(c),
+  );
+  if (validChannels.length === 0) {
+    return { error: "Keine gültigen Kanäle angegeben." };
+  }
+
+  // Load the project
+  const { data: project } = await supabase
+    .from("content_projects")
+    .select("id, topic, brief, requested_channels")
+    .eq("id", projectId)
+    .single();
+  if (!project) return { error: "Projekt nicht gefunden." };
+
+  // Filter out channels that already exist
+  const existing = new Set<Channel>(
+    (project.requested_channels ?? []) as Channel[],
+  );
+  const toGenerate = validChannels.filter((c) => !existing.has(c));
+  if (toGenerate.length === 0) {
+    return { error: "Alle gewählten Kanäle gibt es schon in diesem Projekt." };
+  }
+
+  const result = await generateVariantsForChannels({
+    topic: project.topic,
+    brief: project.brief,
+    channels: toGenerate,
+    supabase,
+  });
+  if ("error" in result) return { error: result.error };
+
+  const variantRows = result.rows.map((r) => ({
+    project_id: projectId,
+    channel: r.channel,
+    version: 1,
+    body: r.body,
+    metadata: r.metadata,
+    status: "draft" as const,
+  }));
+
+  const { error: insertErr } = await supabase
+    .from("content_variants")
+    .insert(variantRows);
+  if (insertErr) return { error: insertErr.message };
+
+  // Update requested_channels
+  const nextRequested = [...existing, ...toGenerate];
+  await supabase
+    .from("content_projects")
+    .update({ requested_channels: nextRequested })
+    .eq("id", projectId);
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "channels_added",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: { added: toGenerate },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true, added: toGenerate };
 }

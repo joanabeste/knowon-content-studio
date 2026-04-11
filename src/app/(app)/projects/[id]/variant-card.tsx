@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Loader2,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import {
   Card,
@@ -29,7 +30,11 @@ import type {
   UserRole,
   VariantStatus,
 } from "@/lib/supabase/types";
-import { setVariantStatus, updateVariantBody } from "./actions";
+import {
+  deleteVariant,
+  setVariantStatus,
+  updateVariantBody,
+} from "./actions";
 import { WpPublishForm } from "./wp-publish-form";
 
 function StatusBadge({ status }: { status: VariantStatus }) {
@@ -158,6 +163,21 @@ export function VariantCard({
     });
   };
 
+  const onDeleteVariant = () => {
+    if (
+      !confirm(
+        `${channelLabel}-Variante wirklich löschen? Das kann nicht rückgängig gemacht werden — der Kanal verschwindet aus diesem Projekt.`,
+      )
+    ) {
+      return;
+    }
+    start(async () => {
+      const res = await deleteVariant(variant.id);
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show(`${channelLabel}-Variante gelöscht.`, "success");
+    });
+  };
+
 
   return (
     <Card>
@@ -189,6 +209,18 @@ export function VariantCard({
                 onClick={() => setEditing(true)}
               >
                 <Edit3 className="h-4 w-4" /> Bearbeiten
+              </Button>
+            )}
+            {canEdit && !editing && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDeleteVariant}
+                disabled={pending}
+                title="Variante löschen"
+                className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
             )}
           </div>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/supabase/types";
 import { ProjectDetailClient } from "./project-detail-client";
 import { DeleteProjectButton } from "./delete-project-button";
+import { AddChannelsSection } from "./add-channels-section";
 import type { ImageWithUrl } from "./blog-image-panel";
 
 export default async function ProjectDetailPage({
@@ -137,6 +138,10 @@ export default async function ProjectDetailPage({
         images={imagesWithUrls}
         role={profile.role}
       />
+
+      {(profile.role === "admin" || profile.role === "editor") && (
+        <AddChannelsSection projectId={id} existingChannels={channels} />
+      )}
     </div>
   );
 }
