@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 262 45% 23%;                 /* KnowOn purple-ish dark */
+    --card: 0 0% 100%;
+    --card-foreground: 262 45% 23%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 45% 23%;
+    --primary: 182 53% 43%;                    /* KnowOn teal */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 262 45% 95%;
+    --secondary-foreground: 262 45% 23%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 338 100% 50%;                    /* KnowOn pink */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 90%;
+    --input: 215 20% 90%;
+    --ring: 182 53% 43%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 262 45% 10%;
+    --foreground: 0 0% 98%;
+    --card: 262 45% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 262 45% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 182 53% 48%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 262 30% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 262 30% 18%;
+    --muted-foreground: 215 20% 70%;
+    --accent: 338 100% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 262 30% 22%;
+    --input: 262 30% 22%;
+    --ring: 182 53% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
