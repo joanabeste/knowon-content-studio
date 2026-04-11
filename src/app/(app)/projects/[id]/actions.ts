@@ -322,24 +322,32 @@ export async function publishBlogToWordpress(
   const tagNames = (metadata.suggested_tags as string[] | undefined) ?? [];
   const content = variant.body;
 
-  // Fetch featured image if exists
+  // Fetch an image for this project. Preference:
+  //  1. One explicitly marked as is_featured=true
+  //  2. Otherwise the most recently created image for this project
+  // This way a user can just generate an image and publish — they don't
+  // HAVE to click the star first.
   let featuredMediaId: number | undefined;
-  const { data: featured } = await supabase
+  const { data: candidates } = await supabase
     .from("images")
-    .select("storage_path")
+    .select("id, storage_path, is_featured, created_at")
     .eq("project_id", projectId)
-    .eq("is_featured", true)
-    .maybeSingle();
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-  if (featured?.storage_path) {
-    // Download from Supabase storage
+  const pick = candidates?.[0];
+  if (pick?.storage_path) {
+    console.log(
+      `[publishBlogToWordpress] using image ${pick.id} (featured=${pick.is_featured})`,
+    );
     const admin = getSupabaseAdmin();
     const { data: fileData, error: dlErr } = await admin.storage
       .from("generated-images")
-      .download(featured.storage_path);
+      .download(pick.storage_path);
     if (dlErr) {
       return {
-        error: `Featured image download fehlgeschlagen: ${dlErr.message}`,
+        error: `Beitragsbild-Download fehlgeschlagen: ${dlErr.message}`,
       };
     }
     const arr = await fileData.arrayBuffer();
@@ -352,16 +360,23 @@ export async function publishBlogToWordpress(
         "image/png",
       );
       featuredMediaId = uploaded.id;
+      console.log(
+        `[publishBlogToWordpress] uploaded to WP media id=${uploaded.id}`,
+      );
 
-      // Also store wp_media_id on the image row for future use
+      // Store wp_media_id + mark it featured (so future publishes use the same image)
       await supabase
         .from("images")
-        .update({ wp_media_id: uploaded.id })
-        .eq("storage_path", featured.storage_path);
+        .update({ wp_media_id: uploaded.id, is_featured: true })
+        .eq("id", pick.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { error: `WP Bild-Upload fehlgeschlagen: ${msg}` };
     }
+  } else {
+    console.log(
+      `[publishBlogToWordpress] no image for project ${projectId}, skipping featured image`,
+    );
   }
 
   // Create post in WordPress
@@ -421,6 +436,7 @@ export async function publishBlogToWordpress(
     wpPostUrl: post.link,
     wpStatus: status,
     wpScheduledFor: dateIso,
+    wpFeaturedMediaId: featuredMediaId ?? null,
   };
 }
 

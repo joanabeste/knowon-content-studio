@@ -72,13 +72,18 @@ export function WpPublishForm({
         return;
       }
       if (res && "wpPostUrl" in res && res.wpPostUrl) {
-        const label =
+        const base =
           mode === "publish"
-            ? "Live veröffentlicht."
+            ? "Live veröffentlicht"
             : mode === "future"
-              ? "Geplant in WordPress."
-              : "Als Entwurf angelegt.";
-        toast.show(label, "success");
+              ? "Geplant in WordPress"
+              : "Als Entwurf angelegt";
+        const hasImage =
+          "wpFeaturedMediaId" in res && res.wpFeaturedMediaId != null;
+        const suffix = hasImage
+          ? " · Beitragsbild ✓"
+          : " · ohne Beitragsbild";
+        toast.show(base + suffix, hasImage ? "success" : "info");
         window.open(res.wpPostUrl, "_blank");
       }
     });

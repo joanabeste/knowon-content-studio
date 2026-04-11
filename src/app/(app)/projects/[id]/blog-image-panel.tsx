@@ -61,6 +61,13 @@ export function BlogImagePanel({
         return;
       }
       if (res.imageId && res.signedUrl) {
+        // If this is the first image for the project, mark it as featured
+        // automatically so the user doesn't have to click the star before
+        // publishing.
+        const isFirst = images.length === 0;
+        if (isFirst) {
+          await setFeaturedImage(projectId, res.imageId);
+        }
         setImages((prev) => [
           {
             id: res.imageId!,
@@ -68,7 +75,7 @@ export function BlogImagePanel({
             prompt,
             storage_path: "",
             wp_media_id: null,
-            is_featured: false,
+            is_featured: isFirst,
             size,
             created_by: null,
             created_at: new Date().toISOString(),
@@ -77,7 +84,12 @@ export function BlogImagePanel({
           ...prev,
         ]);
         setShowPromptEditor(false);
-        toast.show("Bild erzeugt.", "success");
+        toast.show(
+          isFirst
+            ? "Bild erzeugt und als Featured markiert."
+            : "Bild erzeugt.",
+          "success",
+        );
       }
     } finally {
       setPending(false);
