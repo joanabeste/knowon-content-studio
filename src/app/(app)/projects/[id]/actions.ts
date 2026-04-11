@@ -250,13 +250,45 @@ export async function getSignedImageUrl(storagePath: string) {
 // WordPress publish (blog variant → WP draft post with featured image)
 // =====================================================================
 
+export interface PublishOptions {
+  /**
+   * "draft"   = Entwurf (manuell in WP veröffentlichen)
+   * "future"  = Geplant, WP veröffentlicht automatisch zum Datum
+   * "publish" = Sofort live
+   */
+  status?: "draft" | "future" | "publish";
+  /**
+   * ISO-String (z.B. `2026-05-15T10:00:00.000Z`).
+   * Bei status=future verpflichtend und muss in der Zukunft liegen.
+   */
+  dateIso?: string | null;
+}
+
 export async function publishBlogToWordpress(
   projectId: string,
   variantId: string,
+  options: PublishOptions = {},
 ) {
   const { supabase, user, profile } = await requireUser();
   if (profile.role !== "admin" && profile.role !== "editor") {
     return { error: "Nur Admin/Editor können publizieren." };
+  }
+
+  const status = options.status ?? "draft";
+  const dateIso = options.dateIso ?? null;
+
+  // Validation: if status=future, date must be in the future
+  if (status === "future") {
+    if (!dateIso) {
+      return { error: "Für geplante Veröffentlichung ist ein Datum erforderlich." };
+    }
+    const parsed = Date.parse(dateIso);
+    if (Number.isNaN(parsed)) {
+      return { error: "Ungültiges Datumsformat." };
+    }
+    if (parsed <= Date.now()) {
+      return { error: "Geplantes Datum muss in der Zukunft liegen." };
+    }
   }
 
   const creds = await loadWpCredentials();
@@ -332,7 +364,7 @@ export async function publishBlogToWordpress(
     }
   }
 
-  // Create draft post
+  // Create post in WordPress
   let post;
   try {
     post = await createPost(creds, {
@@ -343,19 +375,28 @@ export async function publishBlogToWordpress(
       featuredMediaId,
       tagNames,
       metaDescription,
-      status: "draft",
+      status,
+      date: dateIso ?? undefined,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { error: `WP Post create fehlgeschlagen: ${msg}` };
   }
 
-  // Mark variant as published
+  // Mark variant as published locally. We consider it "published" from
+  // our side as soon as WordPress has accepted the post — even if the
+  // actual publication is scheduled for the future. WP will take it live.
   await supabase
     .from("content_variants")
     .update({
       status: "published",
-      metadata: { ...metadata, wp_post_id: post.id, wp_post_url: post.link },
+      metadata: {
+        ...metadata,
+        wp_post_id: post.id,
+        wp_post_url: post.link,
+        wp_status: status,
+        wp_scheduled_for: dateIso ?? null,
+      },
     })
     .eq("id", variantId);
 
@@ -367,12 +408,20 @@ export async function publishBlogToWordpress(
     payload: {
       wp_post_id: post.id,
       wp_post_url: post.link,
+      wp_status: status,
+      wp_scheduled_for: dateIso ?? null,
       featured_media_id: featuredMediaId ?? null,
     },
   });
 
   revalidatePath(`/projects/${projectId}`);
-  return { ok: true, wpPostId: post.id, wpPostUrl: post.link };
+  return {
+    ok: true,
+    wpPostId: post.id,
+    wpPostUrl: post.link,
+    wpStatus: status,
+    wpScheduledFor: dateIso,
+  };
 }
 
 // =====================================================================

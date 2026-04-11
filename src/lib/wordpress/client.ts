@@ -105,7 +105,21 @@ export interface WpCreatePostInput {
   featuredMediaId?: number;
   tagNames?: string[];
   metaDescription?: string;
-  status?: "draft" | "publish" | "pending";
+  /**
+   * - `draft`   (default) → private Entwurfsfassung, nichts geht live
+   * - `future`  → wird zum `date` automatisch veröffentlicht (Schedule)
+   * - `publish` → sofort live
+   * - `pending` → zur Freigabe
+   */
+  status?: "draft" | "publish" | "pending" | "future";
+  /**
+   * ISO-8601 date string. Sets the post's publication date.
+   * - Zusammen mit `status: "future"` plant WordPress die
+   *   Veröffentlichung automatisch zu diesem Zeitpunkt
+   * - Mit `status: "draft"` gibt es dem Draft ein bestimmtes Datum,
+   *   wird aber nicht automatisch veröffentlicht
+   */
+  date?: string;
 }
 
 export interface WpPostResult {
@@ -175,6 +189,13 @@ export async function createPost(
   if (input.slug) body.slug = input.slug;
   if (input.featuredMediaId) body.featured_media = input.featuredMediaId;
   if (tagIds.length) body.tags = tagIds;
+  if (input.date) {
+    // WordPress accepts `date` (local TZ) and `date_gmt` (UTC).
+    // We pass both — the app always sends ISO in UTC so date_gmt is
+    // authoritative.
+    body.date = input.date;
+    body.date_gmt = input.date;
+  }
   // Meta description — Yoast / RankMath / fallback
   if (input.metaDescription) {
     body.meta = {

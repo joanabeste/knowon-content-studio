@@ -29,11 +29,8 @@ import type {
   UserRole,
   VariantStatus,
 } from "@/lib/supabase/types";
-import {
-  publishBlogToWordpress,
-  setVariantStatus,
-  updateVariantBody,
-} from "./actions";
+import { setVariantStatus, updateVariantBody } from "./actions";
+import { WpPublishForm } from "./wp-publish-form";
 
 function StatusBadge({ status }: { status: VariantStatus }) {
   const config: Record<
@@ -161,17 +158,6 @@ export function VariantCard({
     });
   };
 
-  const publishToWp = () => {
-    start(async () => {
-      const res = await publishBlogToWordpress(variant.project_id, variant.id);
-      if ("error" in res && res.error) {
-        toast.show(res.error, "error");
-      } else if ("wpPostUrl" in res && res.wpPostUrl) {
-        toast.show("WordPress-Entwurf angelegt.", "success");
-        window.open(res.wpPostUrl, "_blank");
-      }
-    });
-  };
 
   return (
     <Card>
@@ -412,29 +398,19 @@ export function VariantCard({
               )}
             </>
           )}
-          {!editing && variant.status === "approved" && canPublish && (
-            <>
-              {variant.channel === "blog" ? (
-                <Button
-                  size="sm"
-                  variant="accent"
-                  onClick={publishToWp}
-                  disabled={pending}
-                >
-                  <ExternalLink className="h-4 w-4" /> Als WordPress-Entwurf anlegen
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="accent"
-                  onClick={markPublished}
-                  disabled={pending}
-                >
-                  <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
-                </Button>
-              )}
-            </>
-          )}
+          {!editing &&
+            variant.status === "approved" &&
+            canPublish &&
+            variant.channel !== "blog" && (
+              <Button
+                size="sm"
+                variant="accent"
+                onClick={markPublished}
+                disabled={pending}
+              >
+                <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
+              </Button>
+            )}
           {!editing &&
             variant.status === "published" &&
             variant.channel === "blog" &&
@@ -449,6 +425,17 @@ export function VariantCard({
               </a>
             )}
         </div>
+
+        {/* WordPress-Publish-Panel for blog variants that are approved */}
+        {!editing &&
+          variant.status === "approved" &&
+          variant.channel === "blog" &&
+          canPublish && (
+            <WpPublishForm
+              projectId={variant.project_id}
+              variantId={variant.id}
+            />
+          )}
       </CardContent>
     </Card>
   );
