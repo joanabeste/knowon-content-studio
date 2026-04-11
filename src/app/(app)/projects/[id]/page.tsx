@@ -13,6 +13,7 @@ import {
   type VariantStatus,
 } from "@/lib/supabase/types";
 import { ProjectDetailClient } from "./project-detail-client";
+import { DeleteProjectButton } from "./delete-project-button";
 import type { ImageWithUrl } from "./blog-image-panel";
 
 export default async function ProjectDetailPage({
@@ -63,6 +64,7 @@ export default async function ProjectDetailPage({
   }
 
   const p = project as ContentProject;
+  const canDelete = profile.role === "admin" || p.created_by === profile.id;
 
   // Respect requested_channels; fall back to all if legacy project has none set
   const channels: Channel[] =
@@ -106,7 +108,12 @@ export default async function ProjectDetailPage({
             Erstellt {formatDate(p.created_at)}
           </span>
         </div>
-        <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
+          {canDelete && (
+            <DeleteProjectButton projectId={p.id} topic={p.topic} />
+          )}
+        </div>
         {p.brief && (
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
             {p.brief}

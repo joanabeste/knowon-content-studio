@@ -29,7 +29,11 @@ import type {
   UserRole,
   VariantStatus,
 } from "@/lib/supabase/types";
-import { setVariantStatus, updateVariantBody } from "./actions";
+import {
+  publishBlogToWordpress,
+  setVariantStatus,
+  updateVariantBody,
+} from "./actions";
 
 function StatusBadge({ status }: { status: VariantStatus }) {
   const config: Record<
@@ -154,6 +158,18 @@ export function VariantCard({
       const res = await setVariantStatus(variant.id, "published");
       if ("error" in res && res.error) toast.show(res.error, "error");
       else toast.show("Als veröffentlicht markiert.", "success");
+    });
+  };
+
+  const publishToWp = () => {
+    start(async () => {
+      const res = await publishBlogToWordpress(variant.project_id, variant.id);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+      } else if ("wpPostUrl" in res && res.wpPostUrl) {
+        toast.show("WordPress-Entwurf angelegt.", "success");
+        window.open(res.wpPostUrl, "_blank");
+      }
     });
   };
 
@@ -397,15 +413,41 @@ export function VariantCard({
             </>
           )}
           {!editing && variant.status === "approved" && canPublish && (
-            <Button
-              size="sm"
-              variant="accent"
-              onClick={markPublished}
-              disabled={pending}
-            >
-              <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
-            </Button>
+            <>
+              {variant.channel === "blog" ? (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  onClick={publishToWp}
+                  disabled={pending}
+                >
+                  <ExternalLink className="h-4 w-4" /> Als WordPress-Entwurf anlegen
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  onClick={markPublished}
+                  disabled={pending}
+                >
+                  <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
+                </Button>
+              )}
+            </>
           )}
+          {!editing &&
+            variant.status === "published" &&
+            variant.channel === "blog" &&
+            (metadata.wp_post_url as string | undefined) && (
+              <a
+                href={metadata.wp_post_url as string}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                WordPress-Entwurf öffnen ↗
+              </a>
+            )}
         </div>
       </CardContent>
     </Card>

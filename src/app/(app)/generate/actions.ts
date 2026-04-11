@@ -14,6 +14,7 @@ import {
   type BrandVoice,
   type Channel,
   type ChannelBrandVoice,
+  type ContextDocument,
   type GoldenExample,
 } from "@/lib/supabase/types";
 
@@ -41,11 +42,12 @@ export async function generateContent(formData: FormData) {
   if (selectedChannels.length === 0)
     return { error: "Mindestens einen Kanal auswählen." };
 
-  // Load brand voice (general + channel overrides) + golden examples
+  // Load brand voice (general + channel overrides) + golden examples + active context documents
   const [
     { data: brandVoice },
     { data: channelVoices },
     { data: examples },
+    { data: docs },
   ] = await Promise.all([
     supabase.from("brand_voice").select("*").eq("id", 1).single(),
     supabase.from("channel_brand_voice").select("*"),
@@ -53,6 +55,11 @@ export async function generateContent(formData: FormData) {
       .from("golden_examples")
       .select("*")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("context_documents")
+      .select("*")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false }),
   ]);
 
   const channelVoiceMap: Partial<Record<Channel, ChannelBrandVoice>> = {};
@@ -67,6 +74,7 @@ export async function generateContent(formData: FormData) {
     brandVoice: (brandVoice ?? null) as BrandVoice | null,
     channelBrandVoices: channelVoiceMap,
     goldenExamples: (examples ?? []) as GoldenExample[],
+    contextDocuments: (docs ?? []) as ContextDocument[],
   };
 
   const systemPrompt = buildSystemPrompt(promptInput);

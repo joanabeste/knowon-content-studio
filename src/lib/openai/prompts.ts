@@ -2,6 +2,7 @@ import type {
   BrandVoice,
   Channel,
   ChannelBrandVoice,
+  ContextDocument,
   GoldenExample,
   SourcePost,
 } from "@/lib/supabase/types";
@@ -14,8 +15,13 @@ export interface BuildPromptInput {
   brandVoice: BrandVoice | null;
   channelBrandVoices: Partial<Record<Channel, ChannelBrandVoice>>;
   goldenExamples: GoldenExample[];
+  contextDocuments?: ContextDocument[];
   sourcePosts?: SourcePost[];
 }
+
+// Per-document truncation so one giant document doesn't eat the whole
+// context window. The total budget is policed in the caller.
+const DOC_EXCERPT_LEN = 6000;
 
 const DEFAULT_CHANNEL_RULES: Record<Channel, string> = {
   linkedin:
@@ -67,6 +73,24 @@ export function buildSystemPrompt(input: BuildPromptInput): string {
       "## Don'ts (allgemein)",
       brandVoice.donts.map((d) => `- ${d}`).join("\n"),
     );
+  }
+
+  // Context Documents — zusätzliches Wissen aus der Library
+  const activeDocs = (input.contextDocuments ?? []).filter(
+    (d) => d.is_active,
+  );
+  if (activeDocs.length) {
+    parts.push(
+      "## Zusätzliches Kontextwissen",
+      "Folgende Dokumente enthalten wichtige Fakten, die du nutzen kannst (aber nicht wörtlich kopieren):",
+    );
+    for (const doc of activeDocs) {
+      const excerpt = doc.content.slice(0, DOC_EXCERPT_LEN);
+      parts.push(
+        `### ${doc.title}`,
+        excerpt + (doc.content.length > DOC_EXCERPT_LEN ? "\n[…gekürzt]" : ""),
+      );
+    }
   }
 
   // Golden Examples — nur pro gewähltem Kanal anhängen

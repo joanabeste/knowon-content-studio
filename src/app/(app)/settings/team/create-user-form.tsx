@@ -1,34 +1,38 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { inviteUser } from "./actions";
+import { useToast } from "@/components/ui/toast";
+import { createUser } from "./actions";
+import { Loader2, UserPlus } from "lucide-react";
 
-export function InviteUserForm() {
+export function CreateUserForm() {
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<{ type: "ok" | "error"; text: string } | null>(
-    null,
-  );
+  const formRef = useRef<HTMLFormElement>(null);
+  const toast = useToast();
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setMsg(null);
     const form = new FormData(e.currentTarget);
     start(async () => {
-      const res = await inviteUser(form);
-      if ("error" in res && res.error)
-        setMsg({ type: "error", text: res.error });
-      else {
-        setMsg({ type: "ok", text: "Einladung verschickt." });
-        (e.target as HTMLFormElement).reset();
+      const res = await createUser(form);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+      } else {
+        toast.show("Nutzer*in angelegt.", "success");
+        formRef.current?.reset();
       }
     });
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-4">
+    <form
+      ref={formRef}
+      onSubmit={onSubmit}
+      className="grid gap-4 md:grid-cols-5"
+    >
       <div className="space-y-2">
         <Label htmlFor="full_name">Name</Label>
         <Input id="full_name" name="full_name" placeholder="Erika Mustermann" />
@@ -41,6 +45,17 @@ export function InviteUserForm() {
           type="email"
           required
           placeholder="erika@knowon.de"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Passwort</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minLength={5}
+          placeholder="mind. 5 Zeichen"
         />
       </div>
       <div className="space-y-2">
@@ -58,18 +73,14 @@ export function InviteUserForm() {
       </div>
       <div className="flex items-end">
         <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Sende…" : "Einladen"}
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4" />
+          )}
+          Anlegen
         </Button>
       </div>
-      {msg && (
-        <p
-          className={`md:col-span-4 text-sm ${
-            msg.type === "error" ? "text-destructive" : "text-primary"
-          }`}
-        >
-          {msg.text}
-        </p>
-      )}
     </form>
   );
 }

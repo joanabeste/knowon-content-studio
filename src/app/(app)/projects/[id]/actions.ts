@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getOpenAI, OPENAI_IMAGE_MODEL } from "@/lib/openai/client";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { loadWpCredentials } from "@/lib/wordpress/credentials";
+import { uploadMedia, createPost } from "@/lib/wordpress/client";
 import type { ContentVariant, VariantStatus } from "@/lib/supabase/types";
 
 // =====================================================================
@@ -240,4 +244,185 @@ export async function getSignedImageUrl(storagePath: string) {
     .from("generated-images")
     .createSignedUrl(storagePath, 3600);
   return data?.signedUrl ?? null;
+}
+
+// =====================================================================
+// WordPress publish (blog variant → WP draft post with featured image)
+// =====================================================================
+
+export async function publishBlogToWordpress(
+  projectId: string,
+  variantId: string,
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor können publizieren." };
+  }
+
+  const creds = await loadWpCredentials();
+  if (!creds) {
+    return {
+      error:
+        "WordPress-Zugangsdaten fehlen. Trage sie in Settings → Integrationen ein.",
+    };
+  }
+
+  // Fetch blog variant
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("*")
+    .eq("id", variantId)
+    .single();
+  if (!variant || variant.channel !== "blog") {
+    return { error: "Blog-Variante nicht gefunden." };
+  }
+  if (variant.status !== "approved") {
+    return {
+      error: "Nur freigegebene Varianten können publiziert werden.",
+    };
+  }
+
+  const metadata = (variant.metadata ?? {}) as Record<string, unknown>;
+  const title = (metadata.title as string) || "Ohne Titel";
+  const slug = (metadata.slug as string) || undefined;
+  const excerpt = (metadata.excerpt as string) || undefined;
+  const metaDescription = (metadata.meta_description as string) || undefined;
+  const tagNames = (metadata.suggested_tags as string[] | undefined) ?? [];
+  const content = variant.body;
+
+  // Fetch featured image if exists
+  let featuredMediaId: number | undefined;
+  const { data: featured } = await supabase
+    .from("images")
+    .select("storage_path")
+    .eq("project_id", projectId)
+    .eq("is_featured", true)
+    .maybeSingle();
+
+  if (featured?.storage_path) {
+    // Download from Supabase storage
+    const admin = getSupabaseAdmin();
+    const { data: fileData, error: dlErr } = await admin.storage
+      .from("generated-images")
+      .download(featured.storage_path);
+    if (dlErr) {
+      return {
+        error: `Featured image download fehlgeschlagen: ${dlErr.message}`,
+      };
+    }
+    const arr = await fileData.arrayBuffer();
+    const buffer = Buffer.from(arr);
+    try {
+      const uploaded = await uploadMedia(
+        creds,
+        `${slug || "blog-image"}.png`,
+        buffer,
+        "image/png",
+      );
+      featuredMediaId = uploaded.id;
+
+      // Also store wp_media_id on the image row for future use
+      await supabase
+        .from("images")
+        .update({ wp_media_id: uploaded.id })
+        .eq("storage_path", featured.storage_path);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { error: `WP Bild-Upload fehlgeschlagen: ${msg}` };
+    }
+  }
+
+  // Create draft post
+  let post;
+  try {
+    post = await createPost(creds, {
+      title,
+      content,
+      excerpt,
+      slug,
+      featuredMediaId,
+      tagNames,
+      metaDescription,
+      status: "draft",
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `WP Post create fehlgeschlagen: ${msg}` };
+  }
+
+  // Mark variant as published
+  await supabase
+    .from("content_variants")
+    .update({
+      status: "published",
+      metadata: { ...metadata, wp_post_id: post.id, wp_post_url: post.link },
+    })
+    .eq("id", variantId);
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "published_to_wp",
+    target_type: "content_variant",
+    target_id: variantId,
+    payload: {
+      wp_post_id: post.id,
+      wp_post_url: post.link,
+      featured_media_id: featuredMediaId ?? null,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true, wpPostId: post.id, wpPostUrl: post.link };
+}
+
+// =====================================================================
+// Project delete
+// =====================================================================
+
+export async function deleteProject(projectId: string) {
+  const { supabase, user, profile } = await requireUser();
+
+  // Fetch project to check ownership
+  const { data: project } = await supabase
+    .from("content_projects")
+    .select("id, created_by, topic")
+    .eq("id", projectId)
+    .single();
+
+  if (!project) return { error: "Projekt nicht gefunden." };
+
+  const isOwner = project.created_by === user.id;
+  if (profile.role !== "admin" && !isOwner) {
+    return { error: "Nur Admin oder Ersteller*in darf löschen." };
+  }
+
+  // Collect image paths to remove from storage
+  const { data: imgs } = await supabase
+    .from("images")
+    .select("storage_path")
+    .eq("project_id", projectId);
+  const paths = (imgs ?? []).map((i) => i.storage_path).filter(Boolean);
+
+  if (paths.length) {
+    await supabase.storage.from("generated-images").remove(paths);
+  }
+
+  // Cascades: variants and images via FK
+  const { error } = await supabase
+    .from("content_projects")
+    .delete()
+    .eq("id", projectId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "project_deleted",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: { topic: project.topic },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  redirect("/projects");
 }

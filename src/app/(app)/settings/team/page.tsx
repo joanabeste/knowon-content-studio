@@ -6,13 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { InviteUserForm } from "./invite-form";
+import { CreateUserForm } from "./create-user-form";
 import { RoleSelect } from "./role-select";
+import { DeleteUserButton } from "./delete-user-button";
 
 export default async function TeamPage() {
-  const { supabase } = await requireRole("admin");
+  const { supabase, user } = await requireRole("admin");
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -24,19 +24,20 @@ export default async function TeamPage() {
       <div>
         <h1 className="text-3xl font-bold">Team</h1>
         <p className="text-muted-foreground">
-          Lade Kolleg*innen ein und verwalte ihre Rollen.
+          Lege Kolleg*innen direkt an und verwalte ihre Rollen.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Neue*n Nutzer*in einladen</CardTitle>
+          <CardTitle>Neue*n Nutzer*in anlegen</CardTitle>
           <CardDescription>
-            Die Person bekommt eine E-Mail mit einem Link zum Passwort-Setzen.
+            Kein E-Mail-Versand, kein Bestätigungsschritt. Du vergibst direkt
+            ein Passwort, das du der Person intern weitergibst.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteUserForm />
+          <CreateUserForm />
         </CardContent>
       </Card>
 
@@ -51,23 +52,43 @@ export default async function TeamPage() {
                 <th className="pb-2">Name</th>
                 <th className="pb-2">Rolle</th>
                 <th className="pb-2">Erstellt</th>
+                <th className="pb-2 w-10"></th>
               </tr>
             </thead>
             <tbody>
-              {profiles?.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="py-3">
-                    <div className="font-medium">{p.full_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{p.id}</div>
-                  </td>
-                  <td className="py-3">
-                    <RoleSelect userId={p.id} currentRole={p.role} />
-                  </td>
-                  <td className="py-3 text-muted-foreground">
-                    {formatDate(p.created_at)}
-                  </td>
-                </tr>
-              ))}
+              {profiles?.map((p) => {
+                const isSelf = p.id === user.id;
+                return (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="py-3">
+                      <div className="font-medium">
+                        {p.full_name || "—"}
+                        {isSelf && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            (du)
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {p.id}
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <RoleSelect userId={p.id} currentRole={p.role} />
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {formatDate(p.created_at)}
+                    </td>
+                    <td className="py-3">
+                      <DeleteUserButton
+                        userId={p.id}
+                        userName={p.full_name || p.id}
+                        disabled={isSelf}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {!profiles?.length && (
