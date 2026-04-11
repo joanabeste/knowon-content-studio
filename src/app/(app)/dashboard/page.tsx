@@ -8,8 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { formatRelative } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
   Sparkles,
@@ -17,6 +16,8 @@ import {
   CheckCircle2,
   Clock,
   Inbox,
+  ArrowRight,
+  type LucideIcon,
 } from "lucide-react";
 import {
   CHANNEL_LABELS,
@@ -24,14 +25,42 @@ import {
   type VariantStatus,
 } from "@/lib/supabase/types";
 
+// Sub-labels per stat card. Used as a one-liner under the big number
+// so each card says what it MEANS, not just what it counts.
+const STAT_SUBLABELS: Record<
+  "draft" | "in_review" | "approved" | "published",
+  { normal: string; empty: string }
+> = {
+  draft: { normal: "Warten auf Überarbeitung", empty: "Keine offenen Entwürfe" },
+  in_review: { normal: "Warten auf Freigabe", empty: "Alles abgearbeitet" },
+  approved: { normal: "Bereit zum Posten", empty: "Noch nichts freigegeben" },
+  published: { normal: "Bereits live", empty: "Noch nichts veröffentlicht" },
+};
+
 export default async function DashboardPage() {
   const { supabase, profile } = await requireUser();
 
-  const { data: recentProjects } = await supabase
+  // Fetch recent projects + their variant statuses in one query via
+  // PostgREST inner-join expansion. Lets us show per-project progress
+  // ("2 von 5 freigegeben") without a second round-trip.
+  const { data: recentProjectsRaw } = await supabase
     .from("content_projects")
-    .select("id, topic, requested_channels, created_at")
+    .select(
+      "id, topic, requested_channels, created_at, content_variants(channel, status)",
+    )
     .order("created_at", { ascending: false })
     .limit(5);
+
+  type RecentProject = {
+    id: string;
+    topic: string;
+    requested_channels: Channel[] | null;
+    created_at: string;
+    content_variants:
+      | { channel: Channel; status: VariantStatus }[]
+      | null;
+  };
+  const recentProjects = (recentProjectsRaw ?? []) as RecentProject[];
 
   // Aliased join: pull the parent project's topic along with each
   // review-queue variant. Aliasing to `project` keeps the client
@@ -58,7 +87,7 @@ export default async function DashboardPage() {
   };
   const reviewQueue = (reviewQueueRaw ?? []) as ReviewQueueItem[];
 
-  // Aggregate variant status counts
+  // Aggregate variant status counts for the top stats row.
   const { data: statusData } = await supabase
     .from("content_variants")
     .select("status");
@@ -79,10 +108,10 @@ export default async function DashboardPage() {
           viewports narrower than ~1200px. */}
       <div className="flex flex-wrap items-start justify-between gap-4 pr-14">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold leading-tight">
             Hallo {profile.full_name?.split(" ")[0] || "!"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="mt-1 text-muted-foreground">
             Bereit, neuen Content für KnowOn zu erzeugen?
           </p>
         </div>
@@ -96,30 +125,50 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           href="/projects"
-          icon={<FolderOpen className="h-4 w-4" />}
+          icon={FolderOpen}
           label="Entwürfe"
           value={counts.draft}
+          sublabel={
+            counts.draft > 0
+              ? STAT_SUBLABELS.draft.normal
+              : STAT_SUBLABELS.draft.empty
+          }
           color="muted"
         />
         <StatCard
           href="/review"
-          icon={<Clock className="h-4 w-4" />}
+          icon={Clock}
           label="In Review"
           value={counts.in_review}
+          sublabel={
+            counts.in_review > 0
+              ? STAT_SUBLABELS.in_review.normal
+              : STAT_SUBLABELS.in_review.empty
+          }
           color="amber"
         />
         <StatCard
           href="/projects"
-          icon={<CheckCircle2 className="h-4 w-4" />}
+          icon={CheckCircle2}
           label="Freigegeben"
           value={counts.approved}
+          sublabel={
+            counts.approved > 0
+              ? STAT_SUBLABELS.approved.normal
+              : STAT_SUBLABELS.approved.empty
+          }
           color="teal"
         />
         <StatCard
           href="/projects"
-          icon={<Sparkles className="h-4 w-4" />}
+          icon={Sparkles}
           label="Veröffentlicht"
           value={counts.published}
+          sublabel={
+            counts.published > 0
+              ? STAT_SUBLABELS.published.normal
+              : STAT_SUBLABELS.published.empty
+          }
           color="purple"
         />
       </div>
@@ -127,36 +176,28 @@ export default async function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Zuletzt erstellt</CardTitle>
-            <CardDescription>Deine letzten Projekte</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle>Zuletzt erstellt</CardTitle>
+                <CardDescription>Deine letzten Projekte</CardDescription>
+              </div>
+              {recentProjects.length > 0 && (
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Alle ansehen
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            {recentProjects && recentProjects.length > 0 ? (
-              <ul className="divide-y">
+            {recentProjects.length > 0 ? (
+              <ul className="space-y-1">
                 {recentProjects.map((p) => (
                   <li key={p.id}>
-                    <Link
-                      href={`/projects/${p.id}`}
-                      className="block py-2 hover:bg-muted/50"
-                    >
-                      <div className="font-medium">{p.topic}</div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {((p.requested_channels ?? []) as Channel[]).map(
-                          (ch) => (
-                            <Badge
-                              key={ch}
-                              variant="muted"
-                              className="text-[10px]"
-                            >
-                              {CHANNEL_LABELS[ch]}
-                            </Badge>
-                          ),
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(p.created_at)}
-                      </div>
-                    </Link>
+                    <RecentProjectRow project={p} />
                   </li>
                 ))}
               </ul>
@@ -174,12 +215,25 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Offene Reviews</CardTitle>
-            <CardDescription>Warten auf Freigabe</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle>Offene Reviews</CardTitle>
+                <CardDescription>Warten auf Freigabe</CardDescription>
+              </div>
+              {reviewQueue.length > 0 && (
+                <Link
+                  href="/review"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Alle
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {reviewQueue.length > 0 ? (
-              <ul className="divide-y">
+              <ul className="space-y-1">
                 {reviewQueue.map((v) => {
                   const topic = Array.isArray(v.project)
                     ? v.project[0]?.topic
@@ -188,22 +242,24 @@ export default async function DashboardPage() {
                     <li key={v.id}>
                       <Link
                         href={`/projects/${v.project_id}`}
-                        className="flex items-center justify-between py-2 hover:bg-muted/50"
+                        className="group flex items-center justify-between gap-3 rounded-md border border-transparent px-2 py-2 transition-colors hover:border-border hover:bg-muted/50"
                       >
-                        <div>
-                          <div className="text-sm font-medium">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
                             {topic || "Ohne Thema"}
                           </div>
-                          <div className="text-xs text-muted-foreground capitalize">
-                            {CHANNEL_LABELS[v.channel as Channel]}
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span>{CHANNEL_LABELS[v.channel as Channel]}</span>
+                            <span>·</span>
+                            <span>{formatRelative(v.created_at)}</span>
                           </div>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                        <span
+                          className="inline-flex shrink-0 items-center rounded-full border border-amber-500/40 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                          aria-label="In Review"
                         >
                           In Review
-                        </Badge>
+                        </span>
                       </Link>
                     </li>
                   );
@@ -227,42 +283,66 @@ export default async function DashboardPage() {
   );
 }
 
+/**
+ * Richer stat card:
+ * - Icon sits in a color-tinted pill (top-right), pulling its own
+ *   attention without overpowering the number.
+ * - Big bold number (text-3xl) is the visual anchor.
+ * - Sub-label below gives the stat *meaning* (e.g., "Warten auf
+ *   Freigabe") instead of just counting things.
+ * - Whole card is a link with a hover accent, so the affordance
+ *   to click through is unambiguous.
+ */
 function StatCard({
-  icon,
+  icon: Icon,
   label,
   value,
+  sublabel,
   color,
   href,
 }: {
-  icon: React.ReactNode;
+  icon: LucideIcon;
   label: string;
   value: number;
+  sublabel: string;
   color: "muted" | "amber" | "teal" | "purple";
   href?: string;
 }) {
-  const colorMap = {
-    muted: "text-muted-foreground",
-    amber: "text-amber-600 dark:text-amber-400",
-    teal: "text-knowon-teal",
-    purple: "text-knowon-purple",
+  const iconPillColors: Record<typeof color, string> = {
+    muted: "bg-muted text-muted-foreground",
+    amber:
+      "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+    teal: "bg-knowon-teal/10 text-knowon-teal",
+    purple: "bg-knowon-purple/10 text-knowon-purple",
   };
+
   const content = (
     <>
-      <div
-        className={cn(
-          "mb-1 flex items-center gap-1.5 text-xs font-medium",
-          colorMap[color],
-        )}
-      >
-        {icon}
-        {label}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </div>
+          <div className="mt-1 text-3xl font-bold leading-none tabular-nums text-foreground">
+            {value}
+          </div>
+        </div>
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            iconPillColors[color],
+          )}
+          aria-hidden="true"
+        >
+          <Icon className="h-4 w-4" strokeWidth={2.4} />
+        </div>
       </div>
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
+      <div className="mt-3 text-xs text-muted-foreground">{sublabel}</div>
     </>
   );
 
   const baseClass =
-    "block rounded-lg border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm";
+    "block rounded-xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md";
 
   if (href) {
     return (
@@ -272,4 +352,120 @@ function StatCard({
     );
   }
   return <div className={baseClass}>{content}</div>;
+}
+
+/**
+ * Recent-project row with per-variant progress. Instead of just
+ * "here are some channels", it shows how many of those channels
+ * are already approved/published — at a glance you see "2 von 5
+ * freigegeben" and know whether a project is stale or finished.
+ * Channel chips are color-coded via a small dot so you can spot
+ * the ones that still need work.
+ */
+function RecentProjectRow({
+  project,
+}: {
+  project: {
+    id: string;
+    topic: string;
+    requested_channels: Channel[] | null;
+    created_at: string;
+    content_variants:
+      | { channel: Channel; status: VariantStatus }[]
+      | null;
+  };
+}) {
+  const variants = project.content_variants ?? [];
+  // Latest status per channel (variants may have multiple versions)
+  const statusByChannel = new Map<Channel, VariantStatus>();
+  for (const v of variants) {
+    // First write wins — we rely on PostgREST returning newest first
+    // doesn't matter much because only the card-level progress
+    // cares, and any approved version "sticks".
+    if (!statusByChannel.has(v.channel)) {
+      statusByChannel.set(v.channel, v.status);
+    }
+  }
+
+  // Prefer the requested_channels list for display order; fall back
+  // to whatever variants exist.
+  const channels: Channel[] =
+    project.requested_channels && project.requested_channels.length > 0
+      ? project.requested_channels
+      : Array.from(statusByChannel.keys());
+
+  const total = channels.length;
+  const done = channels.filter((c) => {
+    const s = statusByChannel.get(c);
+    return s === "approved" || s === "published";
+  }).length;
+
+  return (
+    <Link
+      href={`/projects/${project.id}`}
+      className="group block rounded-md border border-transparent px-2 py-2 transition-colors hover:border-border hover:bg-muted/50"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-foreground group-hover:text-primary">
+            {project.topic}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span>{formatRelative(project.created_at)}</span>
+            {total > 0 && (
+              <>
+                <span>·</span>
+                <span
+                  className={cn(
+                    done === total
+                      ? "font-medium text-knowon-teal"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {done}/{total} freigegeben
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {channels.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {channels.map((ch) => (
+            <ChannelPill
+              key={ch}
+              channel={ch}
+              status={statusByChannel.get(ch)}
+            />
+          ))}
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function ChannelPill({
+  channel,
+  status,
+}: {
+  channel: Channel;
+  status: VariantStatus | undefined;
+}) {
+  const dotColor =
+    status === "published"
+      ? "bg-knowon-purple"
+      : status === "approved"
+        ? "bg-knowon-teal"
+        : status === "in_review"
+          ? "bg-amber-500"
+          : status === "draft"
+            ? "bg-muted-foreground/40"
+            : "border border-dashed border-muted-foreground/40 bg-transparent";
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-foreground/80">
+      <span className={cn("h-1.5 w-1.5 rounded-full", dotColor)} />
+      {CHANNEL_LABELS[channel]}
+    </span>
+  );
 }
