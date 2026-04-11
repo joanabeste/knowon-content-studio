@@ -17,7 +17,7 @@ export default async function AppLayout({
           fullName={profile.full_name}
           email={user.email ?? null}
         />
-        <main className="flex-1 overflow-x-hidden bg-muted/30">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-muted/30">
           <div className="mx-auto w-full max-w-6xl px-6 py-8">{children}</div>
         </main>
       </div>

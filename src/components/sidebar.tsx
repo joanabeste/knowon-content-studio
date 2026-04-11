@@ -102,7 +102,7 @@ export function Sidebar({
     pathname.startsWith("/settings/account/");
 
   return (
-    <aside className="flex w-60 flex-col border-r bg-card">
+    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r bg-card">
       {/* Brand */}
       <div className="border-b px-5 py-5">
         <Link href="/dashboard" className="block">

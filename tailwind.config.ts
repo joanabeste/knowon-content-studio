@@ -9,9 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // KnowOn-Brand-Palette (aus der Website abgeleitet)
+        // KnowOn Corporate Identity
         knowon: {
-          teal: "#32a4a7",
+          teal: "#0097A7",
           pink: "#ff0054",
           purple: "#392054",
         },
