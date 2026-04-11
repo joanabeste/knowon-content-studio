@@ -111,29 +111,71 @@ const KNOWON_TEAL = "#32a4a7";
 const KNOWON_PURPLE = "#392054";
 const KNOWON_PINK = "#ff0054";
 
-// Opacity of each stop — tuned so the photo is clearly visible while
-// the brand tint is unmistakable. If this feels too strong/weak, tweak
-// here only.
-const OVERLAY_OPACITY_TEAL = 0.4;
-const OVERLAY_OPACITY_PURPLE = 0.3;
-const OVERLAY_OPACITY_PINK = 0.45;
+// Strong horizontal gradient matching KnowOn's blog card style:
+// Pink (left) → Purple (middle) → Teal (right). The image underneath
+// is still visible but the brand color clearly dominates.
+const OVERLAY_OPACITY_PINK = 0.78;
+const OVERLAY_OPACITY_PURPLE = 0.74;
+const OVERLAY_OPACITY_TEAL = 0.7;
 
 function buildBrandOverlaySvg(width: number, height: number): string {
+  // KnowOn "On" logo positioned bottom-right, in white
+  const logoWidth = Math.round(width * 0.17);
+  const logoHeight = Math.round(logoWidth * 0.42);
+  const padX = Math.round(width * 0.025);
+  const padY = Math.round(height * 0.035);
+  const logoX = width - logoWidth - padX;
+  const logoY = height - logoHeight - padY;
+
+  // Internal logo metrics
+  const strokeW = Math.max(4, Math.round(logoHeight * 0.1));
+  const iconR = logoHeight * 0.34;
+  const iconCx = logoHeight * 0.5;
+  const iconCy = logoHeight * 0.56;
+  const lineX = iconCx;
+  const lineY1 = logoHeight * 0.08;
+  const lineY2 = iconCy - 2;
+  const textX = iconCx + iconR + logoHeight * 0.18;
+  const textY = logoHeight * 0.92;
+  const textSize = logoHeight * 0.95;
+
+  // Arc endpoints for the "open-top" power circle
+  const arcStartX = iconCx - iconR * 0.55;
+  const arcStartY = iconCy - iconR * 0.82;
+  const arcEndX = iconCx + iconR * 0.55;
+  const arcEndY = iconCy - iconR * 0.82;
+
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="knowon-brand" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${KNOWON_TEAL}" stop-opacity="${OVERLAY_OPACITY_TEAL}"/>
-      <stop offset="55%" stop-color="${KNOWON_PURPLE}" stop-opacity="${OVERLAY_OPACITY_PURPLE}"/>
-      <stop offset="100%" stop-color="${KNOWON_PINK}" stop-opacity="${OVERLAY_OPACITY_PINK}"/>
+    <linearGradient id="knowon-brand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${KNOWON_PINK}" stop-opacity="${OVERLAY_OPACITY_PINK}"/>
+      <stop offset="42%" stop-color="${KNOWON_PURPLE}" stop-opacity="${OVERLAY_OPACITY_PURPLE}"/>
+      <stop offset="100%" stop-color="${KNOWON_TEAL}" stop-opacity="${OVERLAY_OPACITY_TEAL}"/>
     </linearGradient>
   </defs>
   <rect width="100%" height="100%" fill="url(#knowon-brand)"/>
+
+  <!-- KnowOn "On" logo in white, bottom-right -->
+  <g transform="translate(${logoX}, ${logoY})">
+    <g fill="none" stroke="white" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M ${arcStartX} ${arcStartY} A ${iconR} ${iconR} 0 1 0 ${arcEndX} ${arcEndY}"/>
+      <line x1="${lineX}" y1="${lineY1}" x2="${lineX}" y2="${lineY2}"/>
+    </g>
+    <text
+      x="${textX}"
+      y="${textY}"
+      font-family="Arial, 'Helvetica Neue', Helvetica, sans-serif"
+      font-size="${textSize}"
+      font-weight="900"
+      fill="white"
+    >n</text>
+  </g>
 </svg>`;
 }
 
 /**
- * Applies the KnowOn brand-gradient overlay to a raw image buffer.
- * Returns a PNG buffer of the composited result.
+ * Applies the KnowOn brand-gradient overlay + On-logo to a raw image
+ * buffer. Returns a PNG buffer of the composited result.
  */
 async function applyBrandOverlay(raw: Buffer): Promise<Buffer> {
   const image = sharp(raw);
@@ -300,19 +342,27 @@ export async function uploadBlogImage(
     };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : "jpg";
-  const filename = `${projectId}/${crypto.randomUUID()}.${ext}`;
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+
+  // Uploaded images also get the KnowOn brand overlay + logo baked in —
+  // same treatment as AI-generated ones, so everything in the blog
+  // looks consistent.
+  let finalBuffer: Buffer;
+  try {
+    finalBuffer = await applyBrandOverlay(rawBuffer);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[uploadBlogImage] overlay composite failed", msg);
+    finalBuffer = rawBuffer;
+  }
+
+  // After overlay we always store as PNG (sharp normalizes output)
+  const filename = `${projectId}/${crypto.randomUUID()}.png`;
 
   const { error: uploadErr } = await supabase.storage
     .from("generated-images")
-    .upload(filename, buffer, {
-      contentType: file.type,
+    .upload(filename, finalBuffer, {
+      contentType: "image/png",
       cacheControl: "3600",
       upsert: false,
     });

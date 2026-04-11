@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- KnowOn "On" symbol — power icon + lowercase n, in KnowOn purple -->
+  <g fill="none" stroke="#392054" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Power circle: open at the top, so the vertical line reads as a power button -->
+    <path d="M 29 36 A 30 30 0 1 0 59 36" />
+    <!-- Power stroke through the top -->
+    <line x1="44" y1="14" x2="44" y2="44" />
+  </g>
+  <!-- Lowercase n -->
+  <text
+    x="74"
+    y="92"
+    font-family="system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif"
+    font-size="86"
+    font-weight="900"
+    fill="#392054"
+  >n</text>
+</svg>
