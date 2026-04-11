@@ -1,8 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Linkedin, Instagram, Mail, FileText, Newspaper } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Linkedin,
+  Instagram,
+  Mail,
+  FileText,
+  Newspaper,
+  Check,
+} from "lucide-react";
 import { ALL_CHANNELS, CHANNEL_LABELS, type Channel } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +56,17 @@ export function ChannelPicker({
                 : "border-border",
             )}
           >
-            <Checkbox checked={checked} onChange={() => toggle(ch)} />
+            <span
+              aria-hidden
+              className={cn(
+                "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                checked
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-input bg-background",
+              )}
+            >
+              {checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+            </span>
             <div className="flex-1 space-y-1">
               <div className="flex items-center gap-2 font-semibold text-foreground">
                 <Icon className="h-4 w-4" />
