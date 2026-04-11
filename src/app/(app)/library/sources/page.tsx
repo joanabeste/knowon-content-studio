@@ -134,8 +134,13 @@ export default async function SourcesPage({ searchParams }: PageProps) {
         />
       )}
 
-      {/* Sticky search + filter bar */}
-      <div className="sticky top-0 z-10 -mx-6 space-y-3 border-b bg-muted/40 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-muted/60">
+      {/* Sticky search + filter bar — the negative margins match
+          the main layout's horizontal padding (px-4 on mobile,
+          px-6 on desktop), so the bar bleeds to the edge on both
+          viewports. Also `top-14 md:top-0` so on mobile it sits
+          under the fixed mobile topbar (h-14) instead of being
+          covered by it. */}
+      <div className="sticky top-14 z-10 -mx-4 space-y-3 border-b bg-muted/40 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-muted/60 md:-mx-6 md:top-0 md:px-6">
         <SearchForm />
 
         <div className="flex flex-wrap items-center gap-1.5">

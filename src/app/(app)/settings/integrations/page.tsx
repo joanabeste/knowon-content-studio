@@ -193,7 +193,7 @@ export default async function IntegrationsPage() {
               {feeds.map((feed) => (
                 <div
                   key={feed.id}
-                  className="flex items-start justify-between gap-4 rounded-md border bg-card p-3"
+                  className="flex flex-col gap-3 rounded-md border bg-card p-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">

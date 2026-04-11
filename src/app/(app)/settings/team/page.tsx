@@ -46,51 +46,59 @@ export default async function TeamPage() {
           <CardTitle>Alle Nutzer</CardTitle>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="pb-2">Name</th>
-                <th className="pb-2">Rolle</th>
-                <th className="pb-2">Erstellt</th>
-                <th className="pb-2 w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {profiles?.map((p) => {
-                const isSelf = p.id === user.id;
-                return (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-3">
-                      <div className="font-medium">
-                        {p.full_name || "—"}
-                        {isSelf && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            (du)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {p.id}
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <RoleSelect userId={p.id} currentRole={p.role} />
-                    </td>
-                    <td className="py-3 text-muted-foreground">
-                      {formatDate(p.created_at)}
-                    </td>
-                    <td className="py-3">
-                      <DeleteUserButton
-                        userId={p.id}
-                        userName={p.full_name || p.id}
-                        disabled={isSelf}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/*
+            The table scrolls horizontally as a last-resort escape
+            hatch on really narrow screens, but we also hide the
+            non-essential columns (UUID, exact created-at) below sm
+            so 375px phones show just Name + Role + Delete.
+          */}
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2">Name</th>
+                  <th className="pb-2">Rolle</th>
+                  <th className="hidden pb-2 sm:table-cell">Erstellt</th>
+                  <th className="w-10 pb-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {profiles?.map((p) => {
+                  const isSelf = p.id === user.id;
+                  return (
+                    <tr key={p.id} className="border-b last:border-0">
+                      <td className="py-3 pr-2">
+                        <div className="font-medium">
+                          {p.full_name || "—"}
+                          {isSelf && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              (du)
+                            </span>
+                          )}
+                        </div>
+                        <div className="hidden text-xs text-muted-foreground sm:block">
+                          {p.id}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-2">
+                        <RoleSelect userId={p.id} currentRole={p.role} />
+                      </td>
+                      <td className="hidden py-3 text-muted-foreground sm:table-cell">
+                        {formatDate(p.created_at)}
+                      </td>
+                      <td className="py-3">
+                        <DeleteUserButton
+                          userId={p.id}
+                          userName={p.full_name || p.id}
+                          disabled={isSelf}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
           {!profiles?.length && (
             <p className="py-4 text-sm text-muted-foreground">
               Noch keine Nutzer.
