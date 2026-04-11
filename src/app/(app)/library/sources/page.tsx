@@ -1,14 +1,7 @@
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   ALL_CHANNELS,
   CHANNEL_LABELS,
@@ -20,13 +13,19 @@ import {
 import { WpSyncButton } from "./wp-sync-button";
 import { EyefoxSyncButton } from "./eyefox-sync-button";
 import { UrlImportForm } from "./url-import-form";
-import { SourceRowActions } from "./source-row-actions";
+import { AddSourcesPanel } from "./add-sources-panel";
+import { SourceListItem } from "./source-list-item";
+import { SearchForm } from "./search-form";
+
+const PAGE_SIZE = 20;
 
 interface PageProps {
   searchParams: Promise<{
     channel?: string;
     source?: string;
     featured?: string;
+    q?: string;
+    page?: string;
   }>;
 }
 
@@ -34,13 +33,19 @@ export default async function SourcesPage({ searchParams }: PageProps) {
   const { supabase, profile } = await requireUser();
   const params = await searchParams;
 
+  const q = (params.q ?? "").trim();
+  const page = Math.max(1, Number(params.page ?? 1) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  // Paginated + filtered list (the actual rows shown)
   let query = supabase
     .from("source_posts")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("is_featured", { ascending: false })
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("imported_at", { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   if (params.channel && ALL_CHANNELS.includes(params.channel as Channel)) {
     query = query.eq("channel", params.channel);
@@ -51,14 +56,21 @@ export default async function SourcesPage({ searchParams }: PageProps) {
   if (params.featured === "1") {
     query = query.eq("is_featured", true);
   }
+  if (q) {
+    // Escape commas and parentheses because Supabase parses them
+    const safe = q.replace(/[,()]/g, " ");
+    query = query.or(`title.ilike.%${safe}%,body.ilike.%${safe}%`);
+  }
 
-  const { data } = await query;
+  const { data, count } = await query;
   const posts = (data ?? []) as SourcePost[];
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const isAdmin = profile.role === "admin";
   const canEdit = isAdmin || profile.role === "editor";
 
-  // Global counts for the filter badges
+  // Global counts for the filter chips (unfiltered totals across all rows)
   const { data: allCounts } = await supabase
     .from("source_posts")
     .select("channel, source, is_featured");
@@ -76,155 +88,146 @@ export default async function SourcesPage({ searchParams }: PageProps) {
     if (c.is_featured) featuredCount += 1;
   }
 
+  // Helper to build filter hrefs — preserves q, resets page
+  const buildHref = (overrides: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    const merged = { ...params, ...overrides };
+    for (const [k, v] of Object.entries(merged)) {
+      if (k === "q") continue;
+      if (v === undefined || v === "") continue;
+      p.set(k, v);
+    }
+    p.delete("page"); // reset pagination on filter change
+    const qs = p.toString();
+    return qs ? `/library/sources?${qs}` : "/library/sources";
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Inspirations-Bibliothek</h1>
         <p className="text-muted-foreground">
           Alte KnowOn-Beiträge aus allen Kanälen. Werden als Stil-Referenz an
-          GPT übergeben. „Featured" (★) werden bevorzugt ausgewählt.
+          GPT übergeben. Featured (★) werden bevorzugt ausgewählt.
         </p>
       </div>
 
-      {/* Sync panels (admin only) */}
+      {/* Collapsible source-adding panel (admin only) */}
       {isAdmin && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">WordPress-Sync</CardTitle>
-              <CardDescription>Holt Blog-Posts von knowon.de.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WpSyncButton />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Eyefox-Sync</CardTitle>
-              <CardDescription>
-                Scraped die Partnerseite (best-effort, fragil).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EyefoxSyncButton />
-            </CardContent>
-          </Card>
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">URL-Import</CardTitle>
-              <CardDescription>
-                Einzelne öffentliche URLs (z.B. LinkedIn-Post-Link,
-                Instagram-Permalink, Eyefox-Artikel) importieren. Der Server
-                holt den Text aus og:title + Body.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UrlImportForm />
-            </CardContent>
-          </Card>
-        </div>
+        <AddSourcesPanel
+          wpSyncButton={<WpSyncButton />}
+          eyefoxSyncButton={<EyefoxSyncButton />}
+          urlImportForm={<UrlImportForm />}
+        />
       )}
 
-      {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterChip
-          label={`Alle (${counts.length})`}
-          href="/library/sources"
-          active={!params.channel && !params.source && !params.featured}
-        />
-        <FilterChip
-          label={`★ Featured (${featuredCount})`}
-          href="/library/sources?featured=1"
-          active={params.featured === "1"}
-        />
-        <span className="text-xs text-muted-foreground">Kanäle:</span>
-        {ALL_CHANNELS.map((ch) => (
+      {/* Sticky search + filter bar */}
+      <div className="sticky top-0 z-10 -mx-6 space-y-3 border-b bg-muted/40 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-muted/60">
+        <SearchForm />
+
+        <div className="flex flex-wrap items-center gap-1.5">
           <FilterChip
-            key={ch}
-            label={`${CHANNEL_LABELS[ch]} (${channelCounts[ch] ?? 0})`}
-            href={`/library/sources?channel=${ch}`}
-            active={params.channel === ch}
+            label={`Alle (${counts.length})`}
+            href={buildHref({
+              channel: undefined,
+              source: undefined,
+              featured: undefined,
+            })}
+            active={!params.channel && !params.source && !params.featured}
           />
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">Quellen:</span>
-        {(Object.keys(SOURCE_LABELS) as SourcePostSource[]).map((s) => {
-          const count = sourceCounts[s] ?? 0;
-          if (count === 0) return null;
-          return (
+          <FilterChip
+            label={`★ Featured (${featuredCount})`}
+            href={buildHref({
+              channel: undefined,
+              source: undefined,
+              featured: "1",
+            })}
+            active={params.featured === "1"}
+          />
+          <span className="mx-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Kanäle
+          </span>
+          {ALL_CHANNELS.map((ch) => (
             <FilterChip
-              key={s}
-              label={`${SOURCE_LABELS[s]} (${count})`}
-              href={`/library/sources?source=${s}`}
-              active={params.source === s}
+              key={ch}
+              label={`${CHANNEL_LABELS[ch]} (${channelCounts[ch] ?? 0})`}
+              href={buildHref({
+                channel: ch,
+                source: undefined,
+                featured: undefined,
+              })}
+              active={params.channel === ch}
             />
-          );
-        })}
+          ))}
+          <span className="mx-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Quellen
+          </span>
+          {(Object.keys(SOURCE_LABELS) as SourcePostSource[]).map((s) => {
+            const count = sourceCounts[s] ?? 0;
+            if (count === 0) return null;
+            return (
+              <FilterChip
+                key={s}
+                label={`${SOURCE_LABELS[s]} (${count})`}
+                href={buildHref({
+                  channel: undefined,
+                  source: s,
+                  featured: undefined,
+                })}
+                active={params.source === s}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Results meta */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {totalCount === 0
+            ? "Keine Treffer"
+            : `${totalCount.toLocaleString("de-DE")} ${
+                totalCount === 1 ? "Eintrag" : "Einträge"
+              }${q ? ` für "${q}"` : ""}`}
+        </span>
+        {totalPages > 1 && (
+          <span>
+            Seite {page} von {totalPages}
+          </span>
+        )}
       </div>
 
       {/* List */}
-      <div className="grid gap-3">
+      <div className="space-y-1.5">
         {posts.map((p) => (
-          <Card key={p.id}>
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-1">
-                    {p.is_featured && (
-                      <Badge variant="accent" className="text-[10px]">
-                        ★ Featured
-                      </Badge>
-                    )}
-                    <Badge variant="secondary" className="text-[10px]">
-                      {CHANNEL_LABELS[p.channel]}
-                    </Badge>
-                    <Badge variant="muted" className="text-[10px]">
-                      {SOURCE_LABELS[p.source]}
-                    </Badge>
-                    {p.url && (
-                      <a
-                        href={p.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary hover:underline"
-                      >
-                        ↗
-                      </a>
-                    )}
-                  </div>
-                  <CardTitle className="truncate text-base">
-                    {p.title || p.body.slice(0, 80)}
-                  </CardTitle>
-                </div>
-                <SourceRowActions
-                  id={p.id}
-                  isFeatured={p.is_featured}
-                  canEdit={canEdit}
-                  canDelete={isAdmin}
-                />
-              </div>
-              <CardDescription>
-                {p.published_at ? formatDate(p.published_at) : "Ohne Datum"} ·{" "}
-                {p.body.length.toLocaleString("de-DE")} Zeichen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="line-clamp-3 text-sm text-muted-foreground">
-                {p.body.slice(0, 400)}
-              </p>
-            </CardContent>
-          </Card>
+          <SourceListItem
+            key={p.id}
+            post={p}
+            canEdit={canEdit}
+            canDelete={isAdmin}
+          />
         ))}
         {!posts.length && (
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Keine Einträge für diesen Filter. Synce oben etwas oder füge via
-              URL-Import hinzu.
+              {q
+                ? `Keine Treffer für "${q}".`
+                : 'Keine Einträge für diesen Filter. Oben „Quellen hinzufügen" öffnen, um welche anzulegen.'}
             </CardContent>
           </Card>
         )}
       </div>
+
+      {/* Pager */}
+      {totalPages > 1 && (
+        <Pager
+          page={page}
+          totalPages={totalPages}
+          buildHref={(p) => buildHref({ page: String(p) })}
+        />
+      )}
     </div>
   );
 }
@@ -242,7 +245,7 @@ function FilterChip({
     <Link
       href={href}
       className={
-        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors " +
         (active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-background hover:bg-muted")
@@ -250,5 +253,76 @@ function FilterChip({
     >
       {label}
     </Link>
+  );
+}
+
+function Pager({
+  page,
+  totalPages,
+  buildHref,
+}: {
+  page: number;
+  totalPages: number;
+  buildHref: (p: number) => string;
+}) {
+  const pages = new Set<number>();
+  pages.add(1);
+  pages.add(totalPages);
+  for (let p = Math.max(1, page - 1); p <= Math.min(totalPages, page + 1); p++) {
+    pages.add(p);
+  }
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+
+  return (
+    <div className="flex items-center justify-center gap-1 pt-2">
+      {page > 1 ? (
+        <Link
+          href={buildHref(page - 1)}
+          className="flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted"
+          aria-label="Vorherige Seite"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+      ) : (
+        <span className="flex h-8 w-8 items-center justify-center rounded-md border opacity-40">
+          <ChevronLeft className="h-4 w-4" />
+        </span>
+      )}
+      {sorted.map((p, i) => {
+        const prev = sorted[i - 1];
+        const showGap = prev !== undefined && p - prev > 1;
+        return (
+          <span key={p} className="flex items-center gap-1">
+            {showGap && (
+              <span className="px-1 text-xs text-muted-foreground">…</span>
+            )}
+            <Link
+              href={buildHref(p)}
+              className={
+                "flex h-8 min-w-[2rem] items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors " +
+                (p === page
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "hover:bg-muted")
+              }
+            >
+              {p}
+            </Link>
+          </span>
+        );
+      })}
+      {page < totalPages ? (
+        <Link
+          href={buildHref(page + 1)}
+          className="flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted"
+          aria-label="Nächste Seite"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      ) : (
+        <span className="flex h-8 w-8 items-center justify-center rounded-md border opacity-40">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      )}
+    </div>
   );
 }

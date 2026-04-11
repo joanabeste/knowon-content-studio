@@ -6,23 +6,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Upload, Loader2, FileText } from "lucide-react";
-import { addDocument } from "./actions";
+import { Upload, Loader2, FileText, FilePlus2 } from "lucide-react";
+import { addDocument, parsePdfFile } from "./actions";
 
-const MAX_BYTES = 200_000; // match server-side limit
+const MAX_TEXT_BYTES = 200_000;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 export function AddDocumentForm() {
   const [pending, start] = useTransition();
+  const [pdfPending, startPdf] = useTransition();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [tags, setTags] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textFileInputRef = useRef<HTMLInputElement>(null);
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
-  const onPickFile = () => fileInputRef.current?.click();
+  const onPickTextFile = () => textFileInputRef.current?.click();
+  const onPickPdfFile = () => pdfFileInputRef.current?.click();
 
-  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onTextFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const lower = file.name.toLowerCase();
@@ -30,9 +36,9 @@ export function AddDocumentForm() {
       toast.show("Nur .txt und .md werden unterstützt.", "error");
       return;
     }
-    if (file.size > MAX_BYTES) {
+    if (file.size > MAX_TEXT_BYTES) {
       toast.show(
-        `Datei zu groß (${Math.round(file.size / 1024)}KB, max ${Math.round(MAX_BYTES / 1024)}KB).`,
+        `Datei zu groß (${Math.round(file.size / 1024)}KB, max ${Math.round(MAX_TEXT_BYTES / 1024)}KB).`,
         "error",
       );
       return;
@@ -40,10 +46,40 @@ export function AddDocumentForm() {
     const text = await file.text();
     setContent(text);
     setFileName(file.name);
-    if (!title) {
-      setTitle(file.name.replace(/\.(txt|md)$/i, ""));
-    }
+    if (!title) setTitle(file.name.replace(/\.(txt|md)$/i, ""));
     toast.show(`${file.name} geladen.`, "success");
+  };
+
+  const onPdfFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_PDF_BYTES) {
+      toast.show(
+        `PDF zu groß (${Math.round(file.size / 1024 / 1024)}MB, max 10MB).`,
+        "error",
+      );
+      return;
+    }
+
+    const form = new FormData();
+    form.set("file", file);
+
+    startPdf(async () => {
+      const res = await parsePdfFile(form);
+      if ("error" in res) {
+        toast.show(res.error, "error");
+        return;
+      }
+      setContent(res.content);
+      setFileName(file.name);
+      if (!title) setTitle(res.title);
+      toast.show(
+        `${file.name} geladen (${res.content.length.toLocaleString("de-DE")} Zeichen).`,
+        "success",
+      );
+    });
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -63,7 +99,8 @@ export function AddDocumentForm() {
         setContent("");
         setFileName(null);
         setTags("");
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (textFileInputRef.current) textFileInputRef.current.value = "";
+        if (pdfFileInputRef.current) pdfFileInputRef.current.value = "";
       }
     });
   };
@@ -82,9 +119,9 @@ export function AddDocumentForm() {
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Label htmlFor="content">Inhalt*</Label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {fileName && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <FileText className="h-3 w-3" />
@@ -95,17 +132,39 @@ export function AddDocumentForm() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={onPickFile}
+              onClick={onPickTextFile}
+              disabled={pdfPending}
             >
               <Upload className="h-4 w-4" />
               TXT/MD laden
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onPickPdfFile}
+              disabled={pdfPending}
+            >
+              {pdfPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FilePlus2 className="h-4 w-4" />
+              )}
+              {pdfPending ? "PDF wird gelesen…" : "PDF laden"}
+            </Button>
             <input
-              ref={fileInputRef}
+              ref={textFileInputRef}
               type="file"
               accept=".txt,.md,text/plain,text/markdown"
               className="hidden"
-              onChange={onFileSelected}
+              onChange={onTextFileSelected}
+            />
+            <input
+              ref={pdfFileInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              onChange={onPdfFileSelected}
             />
           </div>
         </div>
@@ -115,12 +174,13 @@ export function AddDocumentForm() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           required
-          placeholder="Plain Text oder Markdown. Wird GPT als zusätzlicher Kontext mitgegeben."
+          placeholder="Plain Text, Markdown oder direkt PDF laden. Wird GPT als zusätzlicher Kontext mitgegeben."
           className="font-mono text-xs"
         />
         <p className="text-xs text-muted-foreground">
           {content.length.toLocaleString("de-DE")} /{" "}
-          {MAX_BYTES.toLocaleString("de-DE")} Zeichen
+          {MAX_TEXT_BYTES.toLocaleString("de-DE")} Zeichen · PDFs bis 10 MB
+          werden auf dem Server zu Text extrahiert (keine OCR)
         </p>
       </div>
 

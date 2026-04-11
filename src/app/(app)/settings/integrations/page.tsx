@@ -11,6 +11,15 @@ import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { loadWpCredentials } from "@/lib/wordpress/credentials";
 import { verifyCredentials } from "@/lib/wordpress/client";
 import { WpCredentialsForm } from "./wp-credentials-form";
+import { formatRelative } from "@/lib/utils";
+import {
+  CHANNEL_LABELS,
+  type ContentFeed,
+} from "@/lib/supabase/types";
+import { AddFeedForm } from "@/app/(app)/library/feeds/add-feed-form";
+import { FeedRowActions } from "@/app/(app)/library/feeds/feed-row-actions";
+import { SyncAllButton } from "@/app/(app)/library/feeds/sync-all-button";
+import { getSupabaseServer } from "@/lib/supabase/server";
 
 export default async function IntegrationsPage() {
   await requireRole("admin");
@@ -47,15 +56,24 @@ export default async function IntegrationsPage() {
     }
   }
 
+  // Feeds
+  const supabase = await getSupabaseServer();
+  const { data: feedsData } = await supabase
+    .from("content_feeds")
+    .select("*")
+    .order("created_at", { ascending: false });
+  const feeds = (feedsData ?? []) as ContentFeed[];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Integrationen</h1>
         <p className="text-muted-foreground">
-          Zugangsdaten für externe Dienste.
+          Zugangsdaten für externe Dienste und automatisierte Content-Quellen.
         </p>
       </div>
 
+      {/* WordPress */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -139,26 +157,95 @@ export default async function IntegrationsPage() {
         </CardContent>
       </Card>
 
+      {/* RSS Feeds */}
       <Card>
         <CardHeader>
-          <CardTitle>LinkedIn & Instagram</CardTitle>
-          <CardDescription>
-            Öffentliche Posts werden über{" "}
-            <strong>Feeds</strong> (Sidebar → Bibliothek → Feeds) in die
-            Inspirations-Bibliothek geholt. Erstelle einen RSS-Feed für dein
-            Profil bei{" "}
-            <a
-              href="https://rss.app"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline"
-            >
-              rss.app
-            </a>{" "}
-            oder einem ähnlichen Bridge-Dienst und trage die URL dort ein. Die
-            automatisierte Synchronisation läuft täglich per Cron.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle>RSS-Feeds</CardTitle>
+              <CardDescription>
+                Abonniere RSS-/Atom-Feeds, die automatisch in die
+                Inspirations-Bibliothek fließen. Für LinkedIn/Instagram-Profile
+                erstellst du einen Feed bei{" "}
+                <a
+                  href="https://rss.app"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline"
+                >
+                  rss.app
+                </a>
+                . Für den WordPress-Blog reicht{" "}
+                <code className="font-mono text-xs">
+                  https://www.knowon.de/feed/
+                </code>
+                . Sync läuft täglich automatisch per Cron-Job.
+              </CardDescription>
+            </div>
+            {feeds.length > 0 && <SyncAllButton />}
+          </div>
         </CardHeader>
+        <CardContent className="space-y-4">
+          <AddFeedForm />
+
+          {feeds.length > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              {feeds.map((feed) => (
+                <div
+                  key={feed.id}
+                  className="flex items-start justify-between gap-4 rounded-md border bg-card p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {CHANNEL_LABELS[feed.channel]}
+                      </Badge>
+                      {!feed.is_active && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Inaktiv
+                        </Badge>
+                      )}
+                      {feed.last_error && (
+                        <Badge variant="destructive" className="text-[10px]">
+                          Fehler
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="truncate text-sm font-semibold">
+                      {feed.name}
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      {feed.url}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      <span>
+                        {feed.last_synced_at
+                          ? `Letzter Sync ${formatRelative(feed.last_synced_at)}`
+                          : "Noch nicht synchronisiert"}
+                      </span>
+                      {feed.items_count > 0 && (
+                        <>
+                          <span>·</span>
+                          <span>{feed.items_count} Einträge</span>
+                        </>
+                      )}
+                    </div>
+                    {feed.last_error && (
+                      <div className="mt-1 text-[11px] text-destructive">
+                        {feed.last_error}
+                      </div>
+                    )}
+                  </div>
+                  <FeedRowActions
+                    feedId={feed.id}
+                    feedName={feed.name}
+                    isActive={feed.is_active}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

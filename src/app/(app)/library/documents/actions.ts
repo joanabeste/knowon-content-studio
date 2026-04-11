@@ -4,6 +4,69 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 
 const MAX_CONTENT_LEN = 200_000; // ~200KB
+const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * Parses a PDF file and returns its extracted text.
+ * Client uploads the raw PDF via FormData, server parses and returns
+ * plain text. Uses pdf-parse (pure JS, no native deps).
+ */
+export async function parsePdfFile(
+  formData: FormData,
+): Promise<{ title: string; content: string } | { error: string }> {
+  await requireUser(); // must be logged in at least
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { error: "Keine Datei übergeben." };
+  }
+  if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+    return { error: "Nur PDF-Dateien werden hier akzeptiert." };
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    return {
+      error: `Datei zu groß (${Math.round(file.size / 1024 / 1024)} MB, max 10 MB).`,
+    };
+  }
+
+  let text: string;
+  try {
+    // Dynamic import so pdf-parse isn't bundled on the client.
+    // @types/pdf-parse exports the function as default; CJS interop via
+    // `as unknown` so both runtime shapes work.
+    const mod = await import("pdf-parse");
+    const pdfParse = (mod as unknown as {
+      default: (b: Buffer) => Promise<{ text: string }>;
+    }).default;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const result = await pdfParse(buf);
+    text = result.text ?? "";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `PDF-Parsing fehlgeschlagen: ${msg}` };
+  }
+
+  // Normalize whitespace
+  text = text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!text) {
+    return {
+      error:
+        "Keinen Text im PDF gefunden. Möglicherweise ist es ein Scan ohne OCR.",
+    };
+  }
+
+  if (text.length > MAX_CONTENT_LEN) {
+    text = text.slice(0, MAX_CONTENT_LEN) + "\n\n[…gekürzt wegen Limit]";
+  }
+
+  const defaultTitle = file.name.replace(/\.pdf$/i, "");
+  return { title: defaultTitle, content: text };
+}
 
 export async function addDocument(formData: FormData) {
   const { supabase, user, profile } = await requireUser();
