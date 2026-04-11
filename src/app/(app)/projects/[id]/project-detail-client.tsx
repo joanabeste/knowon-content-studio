@@ -79,7 +79,7 @@ export function ProjectDetailClient({
                 <span
                   className={
                     variant.status === "in_review"
-                      ? "ml-1 h-1.5 w-1.5 rounded-full bg-knowon-pink"
+                      ? "ml-1 h-1.5 w-1.5 rounded-full bg-amber-500"
                       : variant.status === "approved"
                         ? "ml-1 h-1.5 w-1.5 rounded-full bg-knowon-teal"
                         : "ml-1 h-1.5 w-1.5 rounded-full bg-foreground/60"

@@ -104,6 +104,7 @@ export interface WpCreatePostInput {
   slug?: string;
   featuredMediaId?: number;
   tagNames?: string[];
+  categoryNames?: string[];
   metaDescription?: string;
   /**
    * - `draft`   (default) → private Entwurfsfassung, nichts geht live
@@ -128,18 +129,22 @@ export interface WpPostResult {
   status: string;
 }
 
-/** Ensures tags exist, returning their numeric IDs. */
-async function ensureTags(
+/**
+ * Ensures terms (tags or categories) exist for the given taxonomy,
+ * returning their numeric IDs. Missing terms are created on the fly.
+ */
+async function ensureTerms(
   creds: WpCredentials,
-  tagNames: string[],
+  taxonomy: "tags" | "categories",
+  names: string[],
 ): Promise<number[]> {
-  if (!tagNames.length) return [];
+  if (!names.length) return [];
   const ids: number[] = [];
-  for (const name of tagNames) {
+  for (const name of names) {
     // Search for existing
-    const search = new URL("/wp-json/wp/v2/tags", creds.baseUrl);
+    const search = new URL(`/wp-json/wp/v2/${taxonomy}`, creds.baseUrl);
     search.searchParams.set("search", name);
-    search.searchParams.set("per_page", "5");
+    search.searchParams.set("per_page", "10");
     const sres = await fetch(search.toString(), {
       headers: { Authorization: authHeader(creds) },
       cache: "no-store",
@@ -156,7 +161,7 @@ async function ensureTags(
     }
     // Create new
     const cres = await fetch(
-      new URL("/wp-json/wp/v2/tags", creds.baseUrl).toString(),
+      new URL(`/wp-json/wp/v2/${taxonomy}`, creds.baseUrl).toString(),
       {
         method: "POST",
         headers: {
@@ -174,6 +179,43 @@ async function ensureTags(
   return ids;
 }
 
+const ensureTags = (creds: WpCredentials, names: string[]) =>
+  ensureTerms(creds, "tags", names);
+
+const ensureCategories = (creds: WpCredentials, names: string[]) =>
+  ensureTerms(creds, "categories", names);
+
+/**
+ * Lists category names from the connected WordPress site. Used by the
+ * variant editor's quick-pick UI and by the generation prompt so GPT
+ * can suggest categories that already exist (avoids category-sprawl).
+ *
+ * Returns `[]` on any error — the caller decides what "no categories"
+ * means, and we never want generation or editing to fail because of
+ * a flaky WP connection.
+ */
+export async function fetchWordpressCategoryNames(
+  creds: WpCredentials,
+  limit = 100,
+): Promise<string[]> {
+  try {
+    const url = new URL("/wp-json/wp/v2/categories", creds.baseUrl);
+    url.searchParams.set("per_page", String(Math.min(limit, 100)));
+    url.searchParams.set("orderby", "count");
+    url.searchParams.set("order", "desc");
+    url.searchParams.set("_fields", "id,name,count");
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: authHeader(creds) },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { name: string }[];
+    return data.map((c) => c.name).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Creates a new post OR updates an existing one. WordPress uses the
  * same endpoint and method (POST) for both — the difference is whether
@@ -185,6 +227,9 @@ async function sendPost(
   existingPostId?: number,
 ): Promise<WpPostResult> {
   const tagIds = input.tagNames ? await ensureTags(creds, input.tagNames) : [];
+  const categoryIds = input.categoryNames
+    ? await ensureCategories(creds, input.categoryNames)
+    : [];
 
   const body: Record<string, unknown> = {
     status: input.status ?? "draft",
@@ -195,6 +240,7 @@ async function sendPost(
   if (input.slug) body.slug = input.slug;
   if (input.featuredMediaId) body.featured_media = input.featuredMediaId;
   if (tagIds.length) body.tags = tagIds;
+  if (categoryIds.length) body.categories = categoryIds;
   if (input.date) {
     body.date = input.date;
     body.date_gmt = input.date;

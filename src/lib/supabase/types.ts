@@ -35,6 +35,13 @@ export interface BrandVoice {
   dos: string[] | null;
   donts: string[] | null;
   about_knowon: string | null;
+  /**
+   * Storage path of the brand logo (PNG/SVG/WebP). Lives in the
+   * `generated-images` bucket under `brand/`. When set, every
+   * generated or uploaded blog image gets this logo composited
+   * into the bottom-right corner 1:1 (no recoloring, no text).
+   */
+  logo_path: string | null;
   updated_at: string;
   updated_by: string | null;
 }

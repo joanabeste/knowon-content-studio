@@ -79,7 +79,10 @@ export default async function ReviewPage() {
                   >
                     {group.topic}
                   </Link>
-                  <Badge variant="accent">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                  >
                     {group.variants.length}{" "}
                     {group.variants.length === 1 ? "Variante" : "Varianten"}
                   </Badge>

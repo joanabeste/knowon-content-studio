@@ -7,7 +7,12 @@ import { requireUser } from "@/lib/auth";
 import { getOpenAI, OPENAI_IMAGE_MODEL } from "@/lib/openai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { loadWpCredentials } from "@/lib/wordpress/credentials";
-import { uploadMedia, createPost, updatePost } from "@/lib/wordpress/client";
+import {
+  uploadMedia,
+  createPost,
+  updatePost,
+  fetchWordpressCategoryNames,
+} from "@/lib/wordpress/client";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import {
   ALL_CHANNELS,
@@ -103,31 +108,49 @@ export async function setVariantStatus(
 // =====================================================================
 // Blog image prompt + brand overlay pipeline
 //
-// Generated images go through TWO steps:
+// Generated images go through THREE steps:
 //  1. OpenAI gpt-image-1 with a HYPERREALISTIC photographic prompt
+//     at quality: "high" (most realism dial the API exposes)
 //  2. Server-side sharp compositing: a KnowOn brand gradient overlay
-//     (teal → purple → pink) is applied on top, baked into the PNG,
-//     so every generated image carries the KnowOn look out of the box
+//     (purple → teal) is applied on top as a translucent wash
+//  3. The admin-uploaded brand logo from brand_voice.logo_path is
+//     composited 1:1 (no recoloring) into the bottom-right corner.
+//     Falls back to a rendered SVG "KnowOn" wordmark if no logo
+//     has been uploaded yet.
 // =====================================================================
 
 const BRAND_STYLE_SUFFIX =
-  "Hyperrealistische Fotografie, professionell, redaktioneller Editorial-Stil, natürliches Licht, medizinisches Umfeld (Augenarztpraxis, Sprechstunde, Augenuntersuchung, Team-Interaktion), authentisch, klare Komposition mit ruhigem Hintergrund, fotorealistisch mit Tiefenschärfe, 3:2 Querformat. KEINE Textüberlagerung, KEINE Logos, KEINE Illustrationen oder Zeichnungen, KEINE Cartoons. Motiv zentriert so dass ein späterer Farbverlauf-Overlay den Inhalt nicht verdeckt.";
+  "Fotorealistische, hochauflösende redaktionelle Fotografie im Dokumentarstil. Authentisches medizinisches Umfeld (Augenarztpraxis, Sprechstunde, Augenuntersuchung, Team-Interaktion, moderne Praxiseinrichtung). Natürliches weiches Tageslicht, feine Hauttextur, echte Mimik und Körpersprache, realistische Materialien (Kittel, medizinische Geräte, Glas, Metall). Geringe Schärfentiefe mit cremigem Bokeh, 50mm-Objektiv-Look, ruhige Komposition, professioneller Weißabgleich. Aufgenommen wie mit einer hochwertigen Spiegelreflex, 8K-Detailgrad, natürliche Farben. 3:2 Querformat, wichtiges Motiv leicht mittig-links, damit rechts unten Platz für eine kleine Logo-Einblendung bleibt. ABSOLUT KEIN Text, KEINE Schrift, KEINE Logos, KEINE Wasserzeichen, KEINE Illustrationen, KEINE 3D-Renderings, KEINE Cartoons, KEINE AI-typischen Artefakte (keine zusätzlichen Finger, keine verzerrten Gesichter, keine schwebenden Objekte).";
 
 // KnowOn official brand colors (also in tailwind.config.ts)
 const KNOWON_TEAL = "#0097A7";
 const KNOWON_PURPLE = "#392054";
 
-// Strong horizontal gradient: Purple (left) → Teal (right). Only the
-// two brand colors. Tweak opacities here only.
-const OVERLAY_OPACITY_PURPLE = 0.82;
-const OVERLAY_OPACITY_TEAL = 0.78;
+// Horizontal wash: Purple (left) → Teal (right). Kept slightly
+// softer than before so more of the photo detail shines through —
+// higher realism even with the overlay on top.
+const OVERLAY_OPACITY_PURPLE = 0.72;
+const OVERLAY_OPACITY_TEAL = 0.68;
 
-function buildBrandOverlaySvg(width: number, height: number): string {
-  // Full "KnowOn" wordmark bottom-right, white.
-  // Layout inside the logo group (100 abstract units wide):
-  //   "Know" text        0 – 56
-  //   power-circle "O"   58 – 78
-  //   "n" text           80 – 100
+/** Gradient-only SVG used as the first composite layer. */
+function buildBrandGradientSvg(width: number, height: number): string {
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="knowon-brand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${KNOWON_PURPLE}" stop-opacity="${OVERLAY_OPACITY_PURPLE}"/>
+      <stop offset="100%" stop-color="${KNOWON_TEAL}" stop-opacity="${OVERLAY_OPACITY_TEAL}"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#knowon-brand)"/>
+</svg>`;
+}
+
+/**
+ * Fallback wordmark — only rendered when the admin hasn't uploaded a
+ * brand logo yet. Same layout as before the logo-upload feature
+ * existed, so previously generated images still look consistent.
+ */
+function buildFallbackWordmarkSvg(width: number, height: number): string {
   const logoWidth = Math.round(width * 0.22);
   const logoHeight = Math.round(logoWidth * 0.3);
   const padX = Math.round(width * 0.025);
@@ -145,63 +168,110 @@ function buildBrandOverlaySvg(width: number, height: number): string {
   const lineTopY = logoHeight * 0.04;
   const lineBotY = circleCy - 1;
 
-  // Arc for open-top power circle
   const arcStartX = circleCx - circleR * 0.55;
   const arcStartY = circleCy - circleR * 0.82;
   const arcEndX = circleCx + circleR * 0.55;
   const arcEndY = circleCy - circleR * 0.82;
 
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="knowon-brand" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="${KNOWON_PURPLE}" stop-opacity="${OVERLAY_OPACITY_PURPLE}"/>
-      <stop offset="100%" stop-color="${KNOWON_TEAL}" stop-opacity="${OVERLAY_OPACITY_TEAL}"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#knowon-brand)"/>
-
-  <!-- KnowOn wordmark (Know + power-circle O + n) in white, bottom-right -->
   <g transform="translate(${logoX}, ${logoY})">
-    <text
-      x="0"
-      y="${midY}"
-      font-family="'Arial Black', Arial, Helvetica, 'DejaVu Sans', 'Liberation Sans', sans-serif"
-      font-size="${textSize}"
-      font-weight="900"
-      fill="white"
-    >Know</text>
-
+    <text x="0" y="${midY}" font-family="'Arial Black', Arial, Helvetica, sans-serif" font-size="${textSize}" font-weight="900" fill="white">Know</text>
     <g fill="none" stroke="white" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round">
       <path d="M ${arcStartX} ${arcStartY} A ${circleR} ${circleR} 0 1 0 ${arcEndX} ${arcEndY}"/>
       <line x1="${circleCx}" y1="${lineTopY}" x2="${circleCx}" y2="${lineBotY}"/>
     </g>
-
-    <text
-      x="${80 * scale}"
-      y="${midY}"
-      font-family="'Arial Black', Arial, Helvetica, 'DejaVu Sans', 'Liberation Sans', sans-serif"
-      font-size="${textSize}"
-      font-weight="900"
-      fill="white"
-    >n</text>
+    <text x="${80 * scale}" y="${midY}" font-family="'Arial Black', Arial, Helvetica, sans-serif" font-size="${textSize}" font-weight="900" fill="white">n</text>
   </g>
 </svg>`;
 }
 
 /**
- * Applies the KnowOn brand-gradient overlay + On-logo to a raw image
- * buffer. Returns a PNG buffer of the composited result.
+ * Loads the admin-uploaded brand logo from storage (if any). Returns
+ * `null` if no logo is set or the download fails — the caller then
+ * uses the fallback SVG wordmark.
+ */
+async function loadBrandLogoBuffer(): Promise<Buffer | null> {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data: voice } = await admin
+      .from("brand_voice")
+      .select("logo_path")
+      .eq("id", 1)
+      .single();
+    const path = (voice as { logo_path: string | null } | null)?.logo_path;
+    if (!path) return null;
+    const { data: file, error } = await admin.storage
+      .from("generated-images")
+      .download(path);
+    if (error || !file) return null;
+    return Buffer.from(await file.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Applies the KnowOn brand-gradient overlay + brand logo to a raw
+ * image buffer. The logo is placed bottom-right and rendered 1:1
+ * (transparency preserved, no recoloring) — only scaled so it fits
+ * ~22% of the image width.
  */
 async function applyBrandOverlay(raw: Buffer): Promise<Buffer> {
-  const image = sharp(raw);
-  const meta = await image.metadata();
+  const base = sharp(raw, { failOn: "none" });
+  const meta = await base.metadata();
   const width = meta.width ?? 1536;
   const height = meta.height ?? 1024;
-  const overlaySvg = Buffer.from(buildBrandOverlaySvg(width, height));
-  return image
-    .composite([{ input: overlaySvg, blend: "over" }])
-    .png()
-    .toBuffer();
+
+  // Layer 1: gradient wash
+  const gradient = Buffer.from(buildBrandGradientSvg(width, height));
+
+  // Layer 2: brand logo (or fallback wordmark)
+  const logoTargetWidth = Math.round(width * 0.22);
+  const padX = Math.round(width * 0.025);
+  const padY = Math.round(height * 0.035);
+
+  const logoRaw = await loadBrandLogoBuffer();
+  let logoInput: Buffer;
+  if (logoRaw) {
+    // Resize the uploaded logo to the target width, preserving aspect
+    // ratio and transparency. `fit: inside` means we never upscale
+    // beyond the logo's native resolution, so a small logo stays
+    // crisp instead of getting blurry. Sharp handles SVG, PNG, WebP
+    // and JPG transparently here.
+    logoInput = await sharp(logoRaw, {
+      failOn: "none",
+      density: 300, // high DPI for crisp SVG rasterization
+    })
+      .resize({ width: logoTargetWidth, fit: "inside", withoutEnlargement: false })
+      .png()
+      .toBuffer();
+  } else {
+    logoInput = Buffer.from(buildFallbackWordmarkSvg(width, height));
+  }
+
+  // Build the composite list — gradient first (full frame), then
+  // logo at the pinned position.
+  const composites: sharp.OverlayOptions[] = [
+    { input: gradient, blend: "over" },
+  ];
+  if (logoRaw) {
+    // Measure the logo so we can pin it to the bottom-right.
+    const logoMeta = await sharp(logoInput).metadata();
+    const lw = logoMeta.width ?? logoTargetWidth;
+    const lh = logoMeta.height ?? Math.round(logoTargetWidth * 0.3);
+    composites.push({
+      input: logoInput,
+      left: Math.max(0, width - lw - padX),
+      top: Math.max(0, height - lh - padY),
+      blend: "over",
+    });
+  } else {
+    // Fallback wordmark SVG already contains its own positioning,
+    // so we paint it full-frame.
+    composites.push({ input: logoInput, blend: "over" });
+  }
+
+  return base.composite(composites).png().toBuffer();
 }
 
 type ImageSize = "1024x1024" | "1536x1024";
@@ -229,11 +299,14 @@ export async function generateBlogImage(
   let imageBase64: string | null = null;
   try {
     const openai = getOpenAI();
-    // gpt-image-1 returns base64 by default (no response_format param needed)
+    // gpt-image-1 returns base64 by default (no response_format param needed).
+    // `quality: "high"` is the biggest realism lever the API exposes —
+    // worth the extra cost for blog/hero images that double as OG cards.
     const resp = await openai.images.generate({
       model: OPENAI_IMAGE_MODEL,
       prompt: finalPrompt,
       size,
+      quality: "high",
       n: 1,
     });
     const first = resp.data?.[0];
@@ -548,6 +621,8 @@ export async function publishBlogToWordpress(
   const excerpt = (metadata.excerpt as string) || undefined;
   const metaDescription = (metadata.meta_description as string) || undefined;
   const tagNames = (metadata.suggested_tags as string[] | undefined) ?? [];
+  const categoryNames =
+    (metadata.suggested_categories as string[] | undefined) ?? [];
   const content = variant.body;
 
   // If this variant already has a WP post ID, we're updating instead of creating
@@ -634,6 +709,7 @@ export async function publishBlogToWordpress(
       slug,
       featuredMediaId,
       tagNames,
+      categoryNames,
       metaDescription,
       status,
       date: dateIso ?? undefined,
@@ -688,6 +764,26 @@ export async function publishBlogToWordpress(
     wpScheduledFor: dateIso,
     wpFeaturedMediaId: featuredMediaId ?? null,
   };
+}
+
+// =====================================================================
+// WordPress categories list — used by the variant editor to show
+// existing WP categories as a quick-pick. Best-effort: returns []
+// if WP isn't configured or unreachable. Never throws to the client.
+// =====================================================================
+
+export async function listWpCategoryNames(): Promise<
+  { names: string[] } | { error: string }
+> {
+  await requireUser();
+  try {
+    const creds = await loadWpCredentials();
+    if (!creds) return { names: [] };
+    const names = await fetchWordpressCategoryNames(creds);
+    return { names };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "WP unerreichbar" };
+  }
 }
 
 // =====================================================================

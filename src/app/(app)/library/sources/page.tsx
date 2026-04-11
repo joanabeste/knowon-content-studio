@@ -139,30 +139,36 @@ export default async function SourcesPage({ searchParams }: PageProps) {
             })}
             active={!params.channel && !params.source && !params.featured}
           />
-          <FilterChip
-            label={`★ Featured (${featuredCount})`}
-            href={buildHref({
-              channel: undefined,
-              source: undefined,
-              featured: "1",
-            })}
-            active={params.featured === "1"}
-          />
+          {(featuredCount > 0 || params.featured === "1") && (
+            <FilterChip
+              label={`★ Featured (${featuredCount})`}
+              href={buildHref({
+                channel: undefined,
+                source: undefined,
+                featured: "1",
+              })}
+              active={params.featured === "1"}
+            />
+          )}
           <span className="mx-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Kanäle
           </span>
-          {ALL_CHANNELS.map((ch) => (
-            <FilterChip
-              key={ch}
-              label={`${CHANNEL_LABELS[ch]} (${channelCounts[ch] ?? 0})`}
-              href={buildHref({
-                channel: ch,
-                source: undefined,
-                featured: undefined,
-              })}
-              active={params.channel === ch}
-            />
-          ))}
+          {ALL_CHANNELS.map((ch) => {
+            const count = channelCounts[ch] ?? 0;
+            if (count === 0 && params.channel !== ch) return null;
+            return (
+              <FilterChip
+                key={ch}
+                label={`${CHANNEL_LABELS[ch]} (${count})`}
+                href={buildHref({
+                  channel: ch,
+                  source: undefined,
+                  featured: undefined,
+                })}
+                active={params.channel === ch}
+              />
+            );
+          })}
           <span className="mx-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Quellen
           </span>

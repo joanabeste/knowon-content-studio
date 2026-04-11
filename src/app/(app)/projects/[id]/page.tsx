@@ -94,7 +94,12 @@ export default async function ProjectDetailPage({
             {approvedOrPublished}/{total} freigegeben
           </Badge>
           {statusCounts.in_review > 0 && (
-            <Badge variant="accent">{statusCounts.in_review} in Review</Badge>
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+            >
+              {statusCounts.in_review} in Review
+            </Badge>
           )}
           {statusCounts.draft > 0 && (
             <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>

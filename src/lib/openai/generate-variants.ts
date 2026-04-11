@@ -6,6 +6,8 @@ import {
 } from "./schemas";
 import { buildSystemPrompt, buildUserPrompt } from "./prompts";
 import { getOpenAI, OPENAI_TEXT_MODEL } from "./client";
+import { loadWpCredentials } from "@/lib/wordpress/credentials";
+import { fetchWordpressCategoryNames } from "@/lib/wordpress/client";
 import type {
   BrandVoice,
   Channel,
@@ -70,6 +72,22 @@ export async function generateVariantsForChannels(
     channelVoiceMap[cv.channel] = cv;
   }
 
+  // Best-effort: fetch existing WP categories so GPT can pick from
+  // the current taxonomy instead of inventing new ones. Only loaded
+  // when the blog channel is actually requested; errors are swallowed
+  // so generation never fails because WordPress is unreachable.
+  let existingWpCategories: string[] = [];
+  if (channels.includes("blog")) {
+    try {
+      const creds = await loadWpCredentials();
+      if (creds) {
+        existingWpCategories = await fetchWordpressCategoryNames(creds);
+      }
+    } catch {
+      existingWpCategories = [];
+    }
+  }
+
   const promptInput = {
     topic,
     brief,
@@ -78,6 +96,7 @@ export async function generateVariantsForChannels(
     channelBrandVoices: channelVoiceMap,
     sourcePosts: (inspirations ?? []) as SourcePost[],
     contextDocuments: (docs ?? []) as ContextDocument[],
+    existingWpCategories,
   };
 
   const systemPrompt = buildSystemPrompt(promptInput);
@@ -133,6 +152,7 @@ export async function generateVariantsForChannels(
         excerpt: parsed.blog.excerpt,
         meta_description: parsed.blog.meta_description,
         suggested_tags: parsed.blog.suggested_tags,
+        suggested_categories: parsed.blog.suggested_categories,
       };
     }
     return { channel, body, metadata };

@@ -213,7 +213,10 @@ function StatusPill({
         {done}/{total} freigegeben
       </Badge>
       {counts.in_review > 0 && (
-        <Badge variant="accent" className="text-[10px]">
+        <Badge
+          variant="outline"
+          className="border-amber-500/40 bg-amber-50 text-[10px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+        >
           {counts.in_review} Review
         </Badge>
       )}
@@ -233,7 +236,7 @@ function ChannelChip({
     status === "approved" || status === "published"
       ? "bg-knowon-teal"
       : status === "in_review"
-        ? "bg-knowon-pink"
+        ? "bg-amber-500"
         : status === "draft"
           ? "bg-muted-foreground/40"
           : "bg-transparent border border-muted-foreground/40";

@@ -10,7 +10,14 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { Sparkles, FolderOpen, CheckCircle2, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Sparkles,
+  FolderOpen,
+  CheckCircle2,
+  Clock,
+  Inbox,
+} from "lucide-react";
 import {
   CHANNEL_LABELS,
   type Channel,
@@ -67,24 +74,28 @@ export default async function DashboardPage() {
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
+          href="/projects"
           icon={<FolderOpen className="h-4 w-4" />}
           label="Entwürfe"
           value={counts.draft}
           color="muted"
         />
         <StatCard
+          href="/review"
           icon={<Clock className="h-4 w-4" />}
           label="In Review"
           value={counts.in_review}
-          color="pink"
+          color="amber"
         />
         <StatCard
+          href="/projects"
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Freigegeben"
           value={counts.approved}
           color="teal"
         />
         <StatCard
+          href="/projects"
           icon={<Sparkles className="h-4 w-4" />}
           label="Veröffentlicht"
           value={counts.published}
@@ -167,16 +178,27 @@ export default async function DashboardPage() {
                             {CHANNEL_LABELS[v.channel as Channel]}
                           </div>
                         </div>
-                        <Badge variant="accent">In Review</Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                        >
+                          In Review
+                        </Badge>
                       </Link>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Keine offenen Reviews.
-              </p>
+              <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Inbox className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium">Alles abgearbeitet</p>
+                <p className="text-xs text-muted-foreground">
+                  Keine Varianten warten gerade auf Freigabe.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -190,27 +212,44 @@ function StatCard({
   label,
   value,
   color,
+  href,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
-  color: "muted" | "pink" | "teal" | "purple";
+  color: "muted" | "amber" | "teal" | "purple";
+  href?: string;
 }) {
   const colorMap = {
     muted: "text-muted-foreground",
-    pink: "text-knowon-pink",
+    amber: "text-amber-600 dark:text-amber-400",
     teal: "text-knowon-teal",
     purple: "text-knowon-purple",
   };
-  return (
-    <div className="rounded-lg border bg-card p-4">
+  const content = (
+    <>
       <div
-        className={`mb-1 flex items-center gap-1.5 text-xs font-medium ${colorMap[color]}`}
+        className={cn(
+          "mb-1 flex items-center gap-1.5 text-xs font-medium",
+          colorMap[color],
+        )}
       >
         {icon}
         {label}
       </div>
-      <div className="text-2xl font-bold">{value}</div>
-    </div>
+      <div className="text-2xl font-bold tabular-nums">{value}</div>
+    </>
   );
+
+  const baseClass =
+    "block rounded-lg border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm";
+
+  if (href) {
+    return (
+      <Link href={href} className={baseClass}>
+        {content}
+      </Link>
+    );
+  }
+  return <div className={baseClass}>{content}</div>;
 }

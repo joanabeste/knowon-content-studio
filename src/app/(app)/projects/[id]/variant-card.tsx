@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Copy,
   Check,
@@ -32,6 +32,7 @@ import type {
 } from "@/lib/supabase/types";
 import {
   deleteVariant,
+  listWpCategoryNames,
   setVariantStatus,
   updateVariantBody,
 } from "./actions";
@@ -46,8 +47,10 @@ const STATUS_CONFIG: Record<
     className: "bg-muted text-muted-foreground",
   },
   in_review: {
+    // Warm amber — signals "waiting for attention" without being
+    // alarming like the brand pink (which reads as error/destructive).
     label: "In Review",
-    className: "bg-knowon-pink text-white",
+    className: "bg-amber-500 text-white",
   },
   approved: {
     label: "Freigegeben",
@@ -155,6 +158,33 @@ export function VariantCard({
   const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
   const toast = useToast();
+
+  // Existing WordPress categories — lazy-loaded the first time the
+  // user opens a blog variant for editing. Stays in state afterwards
+  // so the list doesn't re-fetch on every edit/cancel cycle.
+  const [wpCategories, setWpCategories] = useState<string[]>([]);
+  const [wpCategoriesLoaded, setWpCategoriesLoaded] = useState(false);
+  useEffect(() => {
+    if (!editing || variant.channel !== "blog" || wpCategoriesLoaded) return;
+    let cancelled = false;
+    listWpCategoryNames().then((res) => {
+      if (cancelled) return;
+      setWpCategoriesLoaded(true);
+      if ("names" in res) setWpCategories(res.names);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, variant.channel, wpCategoriesLoaded]);
+
+  const toggleCategory = (name: string) => {
+    const current = (metadata.suggested_categories as string[] | undefined) || [];
+    const active = current.some((c) => c.toLowerCase() === name.toLowerCase());
+    const next = active
+      ? current.filter((c) => c.toLowerCase() !== name.toLowerCase())
+      : [...current, name];
+    setMetadata({ ...metadata, suggested_categories: next });
+  };
 
   const canEdit = role === "admin" || role === "editor";
   const canApprove = role === "admin" || role === "reviewer";
@@ -444,19 +474,101 @@ export function VariantCard({
           </div>
         )}
 
-        {variant.channel === "blog" &&
-          (metadata.suggested_tags as string[] | undefined)?.length ? (
+        {variant.channel === "blog" && (
           <div className="space-y-2">
             <Label className="text-xs">Tags</Label>
-            <div className="flex flex-wrap gap-1">
-              {(metadata.suggested_tags as string[]).map((t) => (
-                <Badge key={t} variant="outline">
-                  {t}
-                </Badge>
-              ))}
-            </div>
+            {editing ? (
+              <Input
+                value={((metadata.suggested_tags as string[]) || []).join(", ")}
+                onChange={(e) =>
+                  setMetadata({
+                    ...metadata,
+                    suggested_tags: e.target.value
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                }
+                placeholder="Tag 1, Tag 2, Tag 3"
+              />
+            ) : (metadata.suggested_tags as string[] | undefined)?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {(metadata.suggested_tags as string[]).map((t) => (
+                  <Badge key={t} variant="outline">
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">—</p>
+            )}
           </div>
-        ) : null}
+        )}
+
+        {variant.channel === "blog" && (
+          <div className="space-y-2">
+            <Label className="text-xs">Kategorien</Label>
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  value={(
+                    (metadata.suggested_categories as string[]) || []
+                  ).join(", ")}
+                  onChange={(e) =>
+                    setMetadata({
+                      ...metadata,
+                      suggested_categories: e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  placeholder="Kategorie 1, Kategorie 2"
+                />
+                {wpCategories.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      In WordPress:
+                    </span>
+                    {wpCategories.map((name) => {
+                      const active = (
+                        (metadata.suggested_categories as string[]) || []
+                      ).some(
+                        (c) => c.toLowerCase() === name.toLowerCase(),
+                      );
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => toggleCategory(name)}
+                          className={cn(
+                            "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                            active
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background hover:bg-muted",
+                          )}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (metadata.suggested_categories as string[] | undefined)
+                ?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {(metadata.suggested_categories as string[]).map((c) => (
+                  <Badge key={c} variant="secondary">
+                    {c}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">—</p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           {editing && (

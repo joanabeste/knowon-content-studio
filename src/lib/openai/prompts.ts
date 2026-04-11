@@ -19,6 +19,13 @@ export interface BuildPromptInput {
    */
   sourcePosts: SourcePost[];
   contextDocuments?: ContextDocument[];
+  /**
+   * Names of categories that already exist in the connected WordPress
+   * site. When set and the `blog` channel is selected, GPT is told to
+   * prefer these over inventing new ones — keeps the WP category tree
+   * tidy instead of letting every post spawn fresh categories.
+   */
+  existingWpCategories?: string[];
 }
 
 // Per-document truncation so one giant document doesn't eat the whole
@@ -175,6 +182,13 @@ export function buildSystemPrompt(input: BuildPromptInput): string {
       for (const d of cv.specific_donts) lines.push(`  - ${d}`);
     }
     if (cv?.notes) lines.push(`- **Notiz**: ${cv.notes}`);
+    if (ch === "blog" && input.existingWpCategories?.length) {
+      lines.push(
+        `- **Vorhandene WordPress-Kategorien**: ${input.existingWpCategories.join(
+          ", ",
+        )} — wähle für \`suggested_categories\` bevorzugt daraus. Nur wenn keine der vorhandenen Kategorien passt, schlage eine neue vor.`,
+      );
+    }
     parts.push(lines.join("\n"));
   }
 
@@ -198,7 +212,7 @@ const DEFAULT_CHANNEL_RULES: Record<Channel, string> = {
     "Sachlich-informativ, B2B-Partnerseite für Augenarztpraxen, 200-500 Wörter.",
   newsletter:
     "Betreff max. 55 Zeichen, Preheader ergänzt den Betreff, strukturierter HTML-Body mit h2, p, ul, a, strong und einem klaren CTA.",
-  blog: "SEO-optimiert. Titel mit Keyword, strukturiert mit h2/h3/h4, 600-1000 Wörter, Meta-Description 140-160 Zeichen, 3-6 Tags.",
+  blog: "SEO-optimiert. Titel mit Keyword, strukturiert mit h2/h3/h4, 600-1000 Wörter, Meta-Description 140-160 Zeichen, 3-6 Tags, 1-2 Kategorien. Wähle Kategorien bevorzugt aus der Liste vorhandener WordPress-Kategorien (falls übergeben); sonst schlage passende neue vor.",
 };
 
 export function buildUserPrompt(input: BuildPromptInput): string {

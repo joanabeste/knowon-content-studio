@@ -32,6 +32,7 @@ const blogSchema = z.object({
   html_body: z.string(),
   meta_description: z.string(),
   suggested_tags: z.array(z.string()),
+  suggested_categories: z.array(z.string()),
 });
 
 export const channelZodSchemas = {
@@ -133,6 +134,7 @@ const channelJsonSchemas: Record<Channel, Record<string, unknown>> = {
       "html_body",
       "meta_description",
       "suggested_tags",
+      "suggested_categories",
     ],
     properties: {
       title: { type: "string" },
@@ -141,6 +143,7 @@ const channelJsonSchemas: Record<Channel, Record<string, unknown>> = {
       html_body: { type: "string" },
       meta_description: { type: "string" },
       suggested_tags: { type: "array", items: { type: "string" } },
+      suggested_categories: { type: "array", items: { type: "string" } },
     },
   },
 };
