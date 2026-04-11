@@ -10,27 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { loadWpCredentials } from "@/lib/wordpress/credentials";
 import { verifyCredentials } from "@/lib/wordpress/client";
-import { isLinkedinConfigured } from "@/lib/linkedin/client";
-import { loadLinkedinConnection } from "@/lib/linkedin/connection";
-import { isMetaConfigured } from "@/lib/instagram/client";
-import { loadInstagramConnection } from "@/lib/instagram/connection";
 import { WpCredentialsForm } from "./wp-credentials-form";
-import { LinkedinCard } from "./linkedin-card";
-import { InstagramCard } from "./instagram-card";
 
-export default async function IntegrationsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | undefined>>;
-}) {
+export default async function IntegrationsPage() {
   await requireRole("admin");
-  const params = await searchParams;
 
-  const [wpCreds, linkedinConn, instagramConn] = await Promise.all([
-    loadWpCredentials(),
-    loadLinkedinConnection(),
-    loadInstagramConnection(),
-  ]);
+  const wpCreds = await loadWpCredentials();
 
   // Live-verify WP credentials so we can show a clear status banner
   let wpStatus:
@@ -71,29 +56,6 @@ export default async function IntegrationsPage({
         </p>
       </div>
 
-      {/* OAuth-Callback-Banner */}
-      {params.linkedin_ok && (
-        <div className="rounded-md border border-knowon-teal/40 bg-knowon-teal/5 px-4 py-2 text-sm">
-          LinkedIn erfolgreich verbunden.
-        </div>
-      )}
-      {params.linkedin_error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-          LinkedIn-Fehler: {params.linkedin_error}
-        </div>
-      )}
-      {params.instagram_ok && (
-        <div className="rounded-md border border-knowon-teal/40 bg-knowon-teal/5 px-4 py-2 text-sm">
-          Instagram erfolgreich verbunden.
-        </div>
-      )}
-      {params.instagram_error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-          Instagram-Fehler: {params.instagram_error}
-        </div>
-      )}
-
-      {/* WordPress */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -177,42 +139,26 @@ export default async function IntegrationsPage({
         </CardContent>
       </Card>
 
-      {/* LinkedIn */}
       <Card>
         <CardHeader>
-          <CardTitle>LinkedIn</CardTitle>
+          <CardTitle>LinkedIn & Instagram</CardTitle>
           <CardDescription>
-            Holt die letzten Posts deines persönlichen LinkedIn-Accounts und
-            legt sie in der Inspirations-Bibliothek ab, damit GPT sie als
-            Stil-Referenz nutzen kann.
+            Öffentliche Posts werden über{" "}
+            <strong>Feeds</strong> (Sidebar → Bibliothek → Feeds) in die
+            Inspirations-Bibliothek geholt. Erstelle einen RSS-Feed für dein
+            Profil bei{" "}
+            <a
+              href="https://rss.app"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline"
+            >
+              rss.app
+            </a>{" "}
+            oder einem ähnlichen Bridge-Dienst und trage die URL dort ein. Die
+            automatisierte Synchronisation läuft täglich per Cron.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <LinkedinCard
-            configured={isLinkedinConfigured()}
-            connected={!!linkedinConn}
-            externalName={linkedinConn?.externalName ?? null}
-            expiresAt={linkedinConn?.expiresAt?.toISOString() ?? null}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Instagram */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Instagram (Business)</CardTitle>
-          <CardDescription>
-            Holt die letzten Posts deines Instagram-Business-Accounts über die
-            Meta Graph API und legt sie in der Inspirations-Bibliothek ab.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <InstagramCard
-            configured={isMetaConfigured()}
-            connected={!!instagramConn}
-            externalName={instagramConn?.externalName ?? null}
-          />
-        </CardContent>
       </Card>
     </div>
   );

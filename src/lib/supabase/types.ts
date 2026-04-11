@@ -136,6 +136,20 @@ export interface ContextDocument {
   updated_at: string;
 }
 
+export interface ContentFeed {
+  id: string;
+  name: string;
+  url: string;
+  channel: Channel;
+  is_active: boolean;
+  last_synced_at: string | null;
+  last_error: string | null;
+  items_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type PlatformName = "linkedin" | "instagram";
 
 export interface PlatformConnection {

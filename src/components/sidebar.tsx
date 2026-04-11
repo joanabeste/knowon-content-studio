@@ -9,6 +9,7 @@ import {
   FolderOpen,
   FileText,
   BookOpen,
+  Rss,
   CheckCircle2,
   Users,
   Mic,
@@ -46,6 +47,7 @@ const sections: NavSection[] = [
     title: "Bibliothek",
     items: [
       { href: "/library/sources", label: "Inspiration", icon: BookOpen },
+      { href: "/library/feeds", label: "Feeds", icon: Rss },
       { href: "/library/documents", label: "Wissen", icon: FileText },
     ],
   },

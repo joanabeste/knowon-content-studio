@@ -110,6 +110,69 @@ export async function syncEyefoxPartnerPage(options?: {
 // =====================================================================
 // URL-paste import (for arbitrary public URLs)
 // =====================================================================
+
+type ImportOne =
+  | { ok: true; url: string; title: string }
+  | { ok: false; url: string; error: string };
+
+/** Fetches a single URL and upserts it as a source_post. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function importSingleUrl(
+  url: string,
+  channel: Channel,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<ImportOne> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; KnowOnContentStudio/1.0; +https://www.knowon.de)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, url, error: `${res.status}` };
+    const html = await res.text();
+
+    const title = extractMeta(html, "og:title") || extractTitleTag(html) || url;
+    const description =
+      extractMeta(html, "og:description") ||
+      extractMeta(html, "description") ||
+      "";
+    const bodyText = stripTagsKeepText(html);
+    const body = [description, bodyText]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 6000);
+
+    if (!body.trim()) return { ok: false, url, error: "Kein Text" };
+
+    const { error } = await supabase.from("source_posts").upsert(
+      {
+        source: "url_import" as SourcePostSource,
+        external_id: url,
+        url,
+        title: title.slice(0, 200),
+        body,
+        published_at: null,
+        imported_at: new Date().toISOString(),
+        channel,
+        is_featured: false,
+      },
+      { onConflict: "source,external_id" },
+    );
+    if (error) return { ok: false, url, error: error.message };
+    return { ok: true, url, title: title.slice(0, 100) };
+  } catch (err) {
+    return {
+      ok: false,
+      url,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export async function importFromUrl(formData: FormData) {
   const { supabase, user } = await requireUser();
 
@@ -125,56 +188,8 @@ export async function importFromUrl(formData: FormData) {
     return { error: "Ungültiger Kanal." };
   }
 
-  let html;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; KnowOnContentStudio/1.0; +https://www.knowon.de)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return { error: `URL-Fetch fehlgeschlagen: ${res.status}` };
-    }
-    html = await res.text();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { error: `Fetch-Fehler: ${msg}` };
-  }
-
-  // Simple extraction
-  const title = extractMeta(html, "og:title") || extractTitleTag(html) || url;
-  const description =
-    extractMeta(html, "og:description") ||
-    extractMeta(html, "description") ||
-    "";
-  const bodyText = stripTagsKeepText(html);
-  const body = [description, bodyText]
-    .filter(Boolean)
-    .join("\n\n")
-    .slice(0, 6000);
-
-  if (!body.trim()) {
-    return { error: "Konnte keinen Text extrahieren." };
-  }
-
-  const { error } = await supabase.from("source_posts").upsert(
-    {
-      source: "url_import" as SourcePostSource,
-      external_id: url,
-      url,
-      title: title.slice(0, 200),
-      body,
-      published_at: null,
-      imported_at: new Date().toISOString(),
-      channel,
-      is_featured: false,
-    },
-    { onConflict: "source,external_id" },
-  );
-  if (error) return { error: error.message };
+  const result = await importSingleUrl(url, channel, supabase);
+  if (!result.ok) return { error: result.error };
 
   await supabase.from("audit_log").insert({
     actor: user.id,
@@ -184,6 +199,59 @@ export async function importFromUrl(formData: FormData) {
 
   revalidatePath("/library/sources");
   return { ok: true };
+}
+
+/**
+ * Batch-import multiple URLs from a single textarea paste.
+ * Input: formData with `urls` (newline-separated) + `channel`.
+ * Each URL is processed sequentially (to avoid hammering the target
+ * site). Returns per-URL results so the UI can show a mini report.
+ */
+export async function importFromUrls(formData: FormData) {
+  const { supabase, user } = await requireUser();
+
+  const rawUrls = String(formData.get("urls") || "");
+  const channel = String(formData.get("channel") || "") as Channel;
+
+  if (
+    !["linkedin", "instagram", "eyefox", "newsletter", "blog"].includes(channel)
+  ) {
+    return { error: "Ungültiger Kanal." };
+  }
+
+  const urls = rawUrls
+    .split(/\s+/)
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\//.test(u));
+
+  if (urls.length === 0) {
+    return { error: "Keine gültigen URLs gefunden." };
+  }
+  if (urls.length > 50) {
+    return { error: "Maximal 50 URLs pro Batch." };
+  }
+
+  const results: ImportOne[] = [];
+  for (const u of urls) {
+    results.push(await importSingleUrl(u, channel, supabase));
+  }
+
+  const okCount = results.filter((r) => r.ok).length;
+  const failCount = results.length - okCount;
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "url_import_batch",
+    payload: {
+      channel,
+      total: urls.length,
+      ok: okCount,
+      fail: failCount,
+    },
+  });
+
+  revalidatePath("/library/sources");
+  return { ok: true, total: urls.length, okCount, failCount, results };
 }
 
 // =====================================================================
