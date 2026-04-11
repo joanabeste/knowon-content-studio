@@ -4,7 +4,7 @@ import type { WpCredentials } from "./client";
 
 /**
  * Loads WordPress credentials. Preference:
- *  1. Row in `integrations` table with encrypted app password
+ *  1. Row in `integrations` table with encrypted app password (text)
  *  2. Env vars WORDPRESS_BASE_URL / WORDPRESS_USERNAME / WORDPRESS_APP_PASSWORD
  */
 export async function loadWpCredentials(): Promise<WpCredentials | null> {
@@ -18,17 +18,13 @@ export async function loadWpCredentials(): Promise<WpCredentials | null> {
   if (
     data?.wp_base_url &&
     data.wp_username &&
-    data.wp_app_password_encrypted
+    data.wp_app_password_encrypted &&
+    typeof data.wp_app_password_encrypted === "string"
   ) {
     try {
-      // Column is bytea — Supabase returns it as a base64 string with `\x` hex prefix
-      // but our encryptString stores base64 text directly. We handle either case.
-      const raw = data.wp_app_password_encrypted as unknown as string;
-      const cleaned =
-        typeof raw === "string" && raw.startsWith("\\x")
-          ? Buffer.from(raw.slice(2), "hex").toString("utf8")
-          : String(raw);
-      const applicationPassword = decryptString(cleaned);
+      const applicationPassword = decryptString(
+        data.wp_app_password_encrypted,
+      );
       return {
         baseUrl: data.wp_base_url,
         username: data.wp_username,
@@ -36,6 +32,7 @@ export async function loadWpCredentials(): Promise<WpCredentials | null> {
       };
     } catch (err) {
       console.error("[loadWpCredentials] decrypt failed", err);
+      // fall through to env fallback
     }
   }
 
@@ -53,26 +50,35 @@ export async function loadWpCredentials(): Promise<WpCredentials | null> {
   return null;
 }
 
-/** Saves credentials (encrypting the app password) into `integrations` row id=1. */
+/**
+ * Saves credentials into `integrations` row id=1.
+ *
+ * The application password is encrypted at the app level (AES-256-GCM)
+ * via lib/crypto.ts — the resulting base64 string is stored as text.
+ * We deliberately do NOT use Postgres' bytea roundtripping because
+ * Supabase-JS doesn't convert it reliably in both directions.
+ */
 export async function saveWpCredentials(
   creds: WpCredentials,
   userId: string,
 ) {
   const admin = getSupabaseAdmin();
-  const encryptedB64 = encryptString(creds.applicationPassword);
-  // Store base64 text as bytea literal — Postgres accepts `\x<hex>` form,
-  // but we use the text column interface via postgres-js driver: pass as a string.
-  // Simpler: convert base64 → hex and use Postgres bytea hex notation.
-  const hex = Buffer.from(encryptedB64, "utf8").toString("hex");
+
+  // WP generates app passwords with spaces like "abcd efgh ijkl ...".
+  // WordPress accepts them either with or without spaces, but we keep
+  // them as-is so admin can compare against what they copy-pasted.
+  const encryptedBase64 = encryptString(creds.applicationPassword);
+
   const { error } = await admin
     .from("integrations")
     .update({
       wp_base_url: creds.baseUrl.replace(/\/+$/, ""),
       wp_username: creds.username,
-      wp_app_password_encrypted: `\\x${hex}`,
+      wp_app_password_encrypted: encryptedBase64,
       updated_at: new Date().toISOString(),
       updated_by: userId,
     })
     .eq("id", 1);
+
   if (error) throw new Error(error.message);
 }
