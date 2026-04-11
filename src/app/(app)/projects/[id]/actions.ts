@@ -71,9 +71,12 @@ export async function setVariantStatus(
     return { error: "Kein Zugriff." };
   }
 
+  // Load the whole variant so we can (a) revalidate the project
+  // route and (b) feed it back into source_posts as a featured
+  // reference on approval.
   const { data: variant } = await supabase
     .from("content_variants")
-    .select("project_id")
+    .select("*")
     .eq("id", variantId)
     .single();
 
@@ -89,6 +92,46 @@ export async function setVariantStatus(
     .eq("id", variantId);
 
   if (error) return { error: error.message };
+
+  // Feedback loop: whenever a variant gets freshly approved, mirror
+  // it into source_posts as a featured reference so future
+  // generations pick it up in few-shot sampling. Using upsert with
+  // a deterministic external_id means re-approving the same variant
+  // just refreshes the row — no duplicates.
+  if (status === "approved" && variant) {
+    const v = variant as ContentVariant;
+    const { data: project } = await supabase
+      .from("content_projects")
+      .select("topic")
+      .eq("id", v.project_id)
+      .single();
+    const topic = (project as { topic: string } | null)?.topic ?? null;
+
+    // For channels that use metadata.title (blog, newsletter), prefer
+    // that over the project topic so the source_posts row is
+    // self-descriptive.
+    const metaTitle =
+      (v.metadata?.title as string | undefined) ??
+      (v.metadata?.subject as string | undefined) ??
+      null;
+    const sourceTitle = metaTitle ?? topic;
+
+    await supabase.from("source_posts").upsert(
+      {
+        source: "approved_variant",
+        external_id: `variant_${v.id}`,
+        url: null,
+        title: sourceTitle,
+        body: v.body,
+        published_at: v.reviewed_at ?? new Date().toISOString(),
+        imported_at: new Date().toISOString(),
+        channel: v.channel,
+        is_featured: true,
+      },
+      { onConflict: "source,external_id" },
+    );
+    revalidatePath("/library/sources");
+  }
 
   await supabase.from("audit_log").insert({
     actor: user.id,

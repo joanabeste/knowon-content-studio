@@ -42,6 +42,15 @@ export interface BrandVoice {
    * into the bottom-right corner 1:1 (no recoloring, no text).
    */
   logo_path: string | null;
+  /**
+   * Hardcoded tonfall anchor — a freetext block the admin copies
+   * a few perfect example sentences into. Unlike the few-shot
+   * inspiration posts (which rotate per topic), this one text is
+   * injected into EVERY generation prompt, so the model always
+   * has a stable voice reference. Think of it as a mini style
+   * guide, not as a knowledge base.
+   */
+  tone_examples: string | null;
   updated_at: string;
   updated_by: string | null;
 }
@@ -66,7 +75,8 @@ export type SourcePostSource =
   | "newsletter"
   | "url_import"
   | "manual"
-  | "csv";
+  | "csv"
+  | "approved_variant";
 
 export const SOURCE_LABELS: Record<SourcePostSource, string> = {
   wordpress: "WordPress",
@@ -77,6 +87,7 @@ export const SOURCE_LABELS: Record<SourcePostSource, string> = {
   url_import: "URL-Import",
   manual: "Manuell",
   csv: "CSV-Import",
+  approved_variant: "Freigegebene Variante",
 };
 
 export interface SourcePost {

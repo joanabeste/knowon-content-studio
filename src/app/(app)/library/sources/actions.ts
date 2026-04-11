@@ -140,11 +140,14 @@ async function importSingleUrl(
       extractMeta(html, "og:description") ||
       extractMeta(html, "description") ||
       "";
-    const bodyText = stripTagsKeepText(html);
+    // Readability-style extraction: pick the article container first
+    // instead of stripping tags from the whole doc. Cap at 20 KB
+    // (was 6 KB) so long blog posts aren't silently truncated.
+    const bodyText = extractArticleBody(html);
     const body = [description, bodyText]
       .filter(Boolean)
       .join("\n\n")
-      .slice(0, 6000);
+      .slice(0, 20000);
 
     if (!body.trim()) return { ok: false, url, error: "Kein Text" };
 
@@ -416,6 +419,60 @@ function stripTagsKeepText(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Mini-Readability: extract the article body from raw HTML.
+ *
+ * Order of tries:
+ *  1. <article>…</article> — modern sites
+ *  2. <main>…</main> — HTML5 semantic sites
+ *  3. [itemprop="articleBody"] — schema.org tagged sites
+ *  4. .post-content / .entry-content / .article-content — WP classic
+ *  5. Fall back to the whole body with chrome (nav/header/footer/aside) stripped
+ *
+ * This is MUCH better than stripping tags from the entire HTML doc,
+ * which on modern sites pulls in menu + footer + cookie banner text
+ * but often misses the actual article because the article text was
+ * already drowned out by boilerplate. The new approach picks the
+ * main container first, then strips.
+ */
+function extractArticleBody(html: string): string {
+  // First: remove scripts/styles/noscript from the whole doc so the
+  // inner extracted container doesn't carry inline JS text
+  const cleaned = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "");
+
+  // Try known containers in order. The regex is non-greedy on the
+  // inner content so nested tags still close correctly.
+  const containers: RegExp[] = [
+    /<article\b[^>]*>([\s\S]*?)<\/article>/i,
+    /<main\b[^>]*>([\s\S]*?)<\/main>/i,
+    /<[^>]+itemprop=["']articleBody["'][^>]*>([\s\S]*?)<\/[^>]+>/i,
+    /<div\b[^>]*class=["'][^"']*(?:post-content|entry-content|article-content|article__body|post__content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+  ];
+
+  for (const re of containers) {
+    const m = cleaned.match(re);
+    if (m?.[1]) {
+      const inner = m[1];
+      const text = stripTagsKeepText(inner);
+      if (text.length > 300) return text; // good signal
+    }
+  }
+
+  // Fallback: strip boilerplate chrome from the full doc, then
+  // extract text. This keeps navigation text out of the body.
+  const withoutChrome = cleaned
+    .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, "")
+    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside\b[^>]*>[\s\S]*?<\/aside>/gi, "")
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "");
+
+  return stripTagsKeepText(withoutChrome);
 }
 
 function decodeEntities(s: string): string {

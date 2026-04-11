@@ -162,6 +162,25 @@ export function BrandVoiceForm({ initial }: { initial: BrandVoice | null }) {
           />
         </div>
         <div className="space-y-2">
+          <Label htmlFor="tone_examples">
+            Tonfall-Beispiele (hart verankerter Referenz-Ton)
+          </Label>
+          <Textarea
+            id="tone_examples"
+            name="tone_examples"
+            rows={6}
+            defaultValue={initial?.tone_examples ?? ""}
+            placeholder={
+              "Packe hier 3–8 perfekte Beispielsätze rein, die EXAKT den KnowOn-Ton treffen.\n\nBeispiel:\n- Digitale Fortbildung, die wirklich in den Praxisalltag passt.\n- Mit KnowOn wird aus komplexer Theorie klares Handwerk für die Sprechstunde.\n- Wir bilden aus — praxisnah, flexibel, evidenzbasiert."
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Diese Beispiele fließen in <strong>jeden</strong>{" "}
+            Generierungs-Prompt. Nutze sie, um Rhythmus und Wortwahl zu
+            verankern — nicht als Fakten-Speicher.
+          </p>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="audience">Zielgruppe</Label>
           <Textarea
             id="audience"

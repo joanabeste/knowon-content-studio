@@ -9,6 +9,7 @@ export async function saveBrandVoice(formData: FormData) {
   const { supabase, user } = await requireRole("admin");
 
   const tone = String(formData.get("tone") || "");
+  const tone_examples = String(formData.get("tone_examples") || "").trim() || null;
   const audience = String(formData.get("audience") || "");
   const about_knowon = String(formData.get("about_knowon") || "");
   const dos = String(formData.get("dos") || "")
@@ -24,6 +25,7 @@ export async function saveBrandVoice(formData: FormData) {
     .from("brand_voice")
     .update({
       tone,
+      tone_examples,
       audience,
       about_knowon,
       dos,

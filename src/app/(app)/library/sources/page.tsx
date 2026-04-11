@@ -58,9 +58,18 @@ export default async function SourcesPage({ searchParams }: PageProps) {
     query = query.eq("is_featured", true);
   }
   if (q) {
-    // Escape commas and parentheses because Supabase parses them
+    // Escape commas and parentheses because Supabase parses them as
+    // PostgREST operators. We ilike-search the three text columns;
+    // `tags` is a text[] and PostgREST doesn't do partial array
+    // matching, so it's excluded from fuzzy search here.
     const safe = q.replace(/[,()]/g, " ");
-    query = query.or(`title.ilike.%${safe}%,body.ilike.%${safe}%`);
+    query = query.or(
+      [
+        `title.ilike.%${safe}%`,
+        `body.ilike.%${safe}%`,
+        `url.ilike.%${safe}%`,
+      ].join(","),
+    );
   }
 
   const { data, count } = await query;

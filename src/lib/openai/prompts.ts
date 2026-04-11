@@ -91,6 +91,14 @@ export function buildSystemPrompt(input: BuildPromptInput): string {
     parts.push("## Tonfall (allgemein)", brandVoice.tone);
   }
 
+  if (brandVoice?.tone_examples) {
+    parts.push(
+      "## Tonfall-Beispiele (hart verankerter Referenz-Ton)",
+      "Diese Sätze entsprechen EXAKT dem KnowOn-Ton. Übernimm Rhythmus, Wortwahl und Satzbau — aber kopiere keine ganzen Sätze wörtlich.",
+      brandVoice.tone_examples,
+    );
+  }
+
   if (brandVoice?.audience) {
     parts.push("## Zielgruppe", brandVoice.audience);
   }
