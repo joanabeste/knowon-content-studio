@@ -70,12 +70,6 @@ export function LoginForm() {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Anmelden…" : "Anmelden"}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Du wurdest per E-Mail eingeladen und hast noch kein Passwort?{" "}
-            <a href="/set-password" className="underline">
-              Passwort setzen
-            </a>
-          </p>
         </form>
       </CardContent>
     </Card>

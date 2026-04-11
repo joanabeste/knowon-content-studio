@@ -119,14 +119,17 @@ export function CreateUserForm() {
         </div>
         {/*
           Flex wrapper styled like a single Input so the eye+copy
-          buttons live visually INSIDE the field. We can't use the
-          shared Input component here because it's a bare <input>
-          element — stacking icons on top with absolute positioning
-          worked technically but looked detached. This is cleaner.
+          buttons live visually INSIDE the field. Important: we have
+          to strip ALL native input styling (border, padding,
+          background, focus ring, appearance) off the inner <input>,
+          otherwise the browser's default border renders and makes
+          the icons look like they're floating outside their own
+          box. Tailwind preflight does some of this but not the
+          border on Safari/Firefox — so we're explicit.
         */}
         <div
           className={cn(
-            "flex h-10 w-full items-center gap-0.5 rounded-md border border-input bg-background pl-3 pr-1 text-sm ring-offset-background transition-colors",
+            "flex h-10 w-full items-center gap-0.5 rounded-md border border-input bg-background pl-3 pr-1 ring-offset-background transition-colors",
             "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring",
           )}
         >
@@ -143,7 +146,7 @@ export function CreateUserForm() {
               setCopied(false);
             }}
             className={cn(
-              "flex-1 bg-transparent py-2 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+              "min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-foreground shadow-none outline-none ring-0 placeholder:text-muted-foreground focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50",
               visible ? "font-mono" : "font-sans",
             )}
             autoComplete="new-password"
