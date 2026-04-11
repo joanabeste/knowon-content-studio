@@ -155,11 +155,7 @@ function ProjectListItem({
               </div>
             </div>
             {canDelete && (
-              <div
-                className="relative z-10 shrink-0"
-                // prevent the enclosing <Link>'s click when clicking the button
-                onClick={(e) => e.preventDefault()}
-              >
+              <div className="relative z-10 shrink-0">
                 <DeleteProjectButton
                   projectId={project.id}
                   topic={project.topic}
