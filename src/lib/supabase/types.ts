@@ -5,6 +5,22 @@ export type UserRole = "admin" | "editor" | "reviewer";
 export type Channel = "linkedin" | "instagram" | "eyefox" | "newsletter" | "blog";
 export type VariantStatus = "draft" | "in_review" | "approved" | "published";
 
+export const ALL_CHANNELS: Channel[] = [
+  "linkedin",
+  "instagram",
+  "eyefox",
+  "newsletter",
+  "blog",
+];
+
+export const CHANNEL_LABELS: Record<Channel, string> = {
+  linkedin: "LinkedIn",
+  instagram: "Instagram",
+  eyefox: "Eyefox",
+  newsletter: "Newsletter",
+  blog: "Blog",
+};
+
 export interface Profile {
   id: string;
   full_name: string | null;
@@ -19,6 +35,18 @@ export interface BrandVoice {
   dos: string[] | null;
   donts: string[] | null;
   about_knowon: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+export interface ChannelBrandVoice {
+  channel: Channel;
+  tone: string | null;
+  length_guideline: string | null;
+  cta_style: string | null;
+  specific_dos: string[] | null;
+  specific_donts: string[] | null;
+  notes: string | null;
   updated_at: string;
   updated_by: string | null;
 }
@@ -50,6 +78,7 @@ export interface ContentProject {
   topic: string;
   brief: string | null;
   status: VariantStatus;
+  requested_channels: Channel[];
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -75,6 +104,8 @@ export interface ImageRow {
   prompt: string;
   storage_path: string;
   wp_media_id: number | null;
+  is_featured: boolean;
+  size: string | null;
   created_by: string | null;
   created_at: string;
 }

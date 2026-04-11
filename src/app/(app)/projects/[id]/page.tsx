@@ -1,36 +1,19 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import type {
-  Channel,
-  ContentProject,
-  ContentVariant,
+import {
+  ALL_CHANNELS,
+  CHANNEL_LABELS,
+  type Channel,
+  type ContentProject,
+  type ContentVariant,
+  type ImageRow,
+  type VariantStatus,
 } from "@/lib/supabase/types";
-import { VariantCard } from "./variant-card";
-
-const CHANNEL_LABEL: Record<Channel, string> = {
-  linkedin: "LinkedIn",
-  instagram: "Instagram",
-  eyefox: "Eyefox",
-  newsletter: "Newsletter",
-  blog: "Blog",
-};
-
-const CHANNEL_ORDER: Channel[] = [
-  "linkedin",
-  "instagram",
-  "eyefox",
-  "newsletter",
-  "blog",
-];
+import { ProjectDetailClient } from "./project-detail-client";
+import type { ImageWithUrl } from "./blog-image-panel";
 
 export default async function ProjectDetailPage({
   params,
@@ -48,60 +31,105 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound();
 
-  const { data: variants } = await supabase
+  const { data: variantsData } = await supabase
     .from("content_variants")
     .select("*")
     .eq("project_id", id)
     .order("version", { ascending: false });
 
+  const variants = (variantsData ?? []) as ContentVariant[];
+
   // Latest version per channel
   const latestByChannel = new Map<Channel, ContentVariant>();
-  for (const v of (variants ?? []) as ContentVariant[]) {
+  for (const v of variants) {
     if (!latestByChannel.has(v.channel)) latestByChannel.set(v.channel, v);
+  }
+
+  // Load images for this project
+  const { data: imagesData } = await supabase
+    .from("images")
+    .select("*")
+    .eq("project_id", id)
+    .order("created_at", { ascending: false });
+
+  // Generate signed URLs for images (service role bypasses RLS for consistency)
+  const admin = getSupabaseAdmin();
+  const imagesWithUrls: ImageWithUrl[] = [];
+  for (const img of (imagesData ?? []) as ImageRow[]) {
+    const { data: signed } = await admin.storage
+      .from("generated-images")
+      .createSignedUrl(img.storage_path, 3600);
+    imagesWithUrls.push({ ...img, signedUrl: signed?.signedUrl ?? null });
   }
 
   const p = project as ContentProject;
 
+  // Respect requested_channels; fall back to all if legacy project has none set
+  const channels: Channel[] =
+    p.requested_channels && p.requested_channels.length > 0
+      ? p.requested_channels
+      : ALL_CHANNELS;
+
+  // Aggregation stats
+  const statusCounts: Record<VariantStatus, number> = {
+    draft: 0,
+    in_review: 0,
+    approved: 0,
+    published: 0,
+  };
+  for (const ch of channels) {
+    const v = latestByChannel.get(ch);
+    if (v) statusCounts[v.status] += 1;
+  }
+  const total = channels.length;
+  const approvedOrPublished = statusCounts.approved + statusCounts.published;
+
   return (
     <div className="space-y-6">
-      <div>
-        <div className="mb-2 flex items-center gap-2">
-          <Badge variant="muted">{p.status}</Badge>
-          <span className="text-xs text-muted-foreground">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="muted">
+            {approvedOrPublished}/{total} freigegeben
+          </Badge>
+          {statusCounts.in_review > 0 && (
+            <Badge variant="accent">{statusCounts.in_review} in Review</Badge>
+          )}
+          {statusCounts.draft > 0 && (
+            <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>
+          )}
+          {statusCounts.published > 0 && (
+            <Badge variant="default">
+              {statusCounts.published} veröffentlicht
+            </Badge>
+          )}
+          <span className="ml-auto text-xs text-muted-foreground">
             Erstellt {formatDate(p.created_at)}
           </span>
         </div>
-        <h1 className="text-3xl font-bold">{p.topic}</h1>
+        <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
         {p.brief && (
-          <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
             {p.brief}
           </p>
         )}
+        <div className="flex flex-wrap gap-1">
+          {channels.map((ch) => (
+            <Badge key={ch} variant="secondary" className="capitalize">
+              {CHANNEL_LABELS[ch]}
+            </Badge>
+          ))}
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        {CHANNEL_ORDER.map((channel) => {
-          const variant = latestByChannel.get(channel);
-          if (!variant) {
-            return (
-              <Card key={channel}>
-                <CardHeader>
-                  <CardTitle>{CHANNEL_LABEL[channel]}</CardTitle>
-                  <CardDescription>Keine Variante vorhanden.</CardDescription>
-                </CardHeader>
-              </Card>
-            );
-          }
-          return (
-            <VariantCard
-              key={variant.id}
-              variant={variant}
-              channelLabel={CHANNEL_LABEL[channel]}
-              role={profile.role}
-            />
-          );
-        })}
-      </div>
+      <ProjectDetailClient
+        projectId={id}
+        channels={channels}
+        variants={Array.from(latestByChannel.values()).filter((v) =>
+          channels.includes(v.channel),
+        )}
+        images={imagesWithUrls}
+        role={profile.role}
+      />
     </div>
   );
 }

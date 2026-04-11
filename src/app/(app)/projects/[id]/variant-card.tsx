@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Copy, Check, Edit3, Send, CheckCircle2 } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Edit3,
+  Send,
+  CheckCircle2,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -14,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import type {
   ContentVariant,
   UserRole,
@@ -22,14 +32,38 @@ import type {
 import { setVariantStatus, updateVariantBody } from "./actions";
 
 function StatusBadge({ status }: { status: VariantStatus }) {
-  const map: Record<VariantStatus, { label: string; variant: "muted" | "accent" | "default" }> = {
-    draft: { label: "Entwurf", variant: "muted" },
-    in_review: { label: "In Review", variant: "accent" },
-    approved: { label: "Freigegeben", variant: "default" },
-    published: { label: "Veröffentlicht", variant: "default" },
+  const config: Record<
+    VariantStatus,
+    { label: string; className: string }
+  > = {
+    draft: {
+      label: "Entwurf",
+      className: "bg-muted text-muted-foreground",
+    },
+    in_review: {
+      label: "In Review",
+      className: "bg-knowon-pink text-white",
+    },
+    approved: {
+      label: "Freigegeben",
+      className: "bg-knowon-teal text-white",
+    },
+    published: {
+      label: "Veröffentlicht",
+      className: "bg-knowon-purple text-white",
+    },
   };
-  const { label, variant } = map[status];
-  return <Badge variant={variant}>{label}</Badge>;
+  const { label, className } = config[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
 }
 
 export function VariantCard({
@@ -48,6 +82,7 @@ export function VariantCard({
   );
   const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
+  const toast = useToast();
 
   const canEdit = role === "admin" || role === "editor";
   const canApprove = role === "admin" || role === "reviewer";
@@ -59,6 +94,8 @@ export function VariantCard({
       : variant.channel === "instagram"
         ? 2200
         : null;
+  const overLimit = charLimit !== null && body.length > charLimit;
+  const nearLimit = charLimit !== null && body.length > charLimit * 0.9;
 
   const copy = async () => {
     const parts: string[] = [body];
@@ -72,31 +109,51 @@ export function VariantCard({
     }
     await navigator.clipboard.writeText(parts.join("\n\n"));
     setCopied(true);
+    toast.show("In Zwischenablage kopiert", "success");
     setTimeout(() => setCopied(false), 1500);
   };
 
   const save = () => {
     start(async () => {
-      await updateVariantBody(variant.id, body, metadata);
+      const res = await updateVariantBody(variant.id, body, metadata);
+      if ("error" in res && res.error) {
+        toast.show(res.error, "error");
+        return;
+      }
+      toast.show("Gespeichert.", "success");
       setEditing(false);
     });
   };
 
   const sendToReview = () => {
     start(async () => {
-      await setVariantStatus(variant.id, "in_review");
+      const res = await setVariantStatus(variant.id, "in_review");
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show("Zur Review geschickt.", "success");
     });
   };
 
   const approve = () => {
     start(async () => {
-      await setVariantStatus(variant.id, "approved");
+      const res = await setVariantStatus(variant.id, "approved");
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show("Freigegeben.", "success");
+    });
+  };
+
+  const sendBackToDraft = () => {
+    start(async () => {
+      const res = await setVariantStatus(variant.id, "draft");
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show("Zurück in Entwurf.", "success");
     });
   };
 
   const markPublished = () => {
     start(async () => {
-      await setVariantStatus(variant.id, "published");
+      const res = await setVariantStatus(variant.id, "published");
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show("Als veröffentlicht markiert.", "success");
     });
   };
 
@@ -107,7 +164,9 @@ export function VariantCard({
           <div className="flex items-center gap-2">
             <CardTitle>{channelLabel}</CardTitle>
             <StatusBadge status={variant.status} />
-            <span className="text-xs text-muted-foreground">v{variant.version}</span>
+            <span className="text-xs text-muted-foreground">
+              v{variant.version}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={copy}>
@@ -133,51 +192,111 @@ export function VariantCard({
           </div>
         </div>
         {charLimit && (
-          <CardDescription>
-            {body.length} / {charLimit} Zeichen
+          <CardDescription
+            className={cn(
+              overLimit && "text-destructive font-semibold",
+              !overLimit && nearLimit && "text-knowon-pink",
+            )}
+          >
+            {body.length.toLocaleString("de-DE")} /{" "}
+            {charLimit.toLocaleString("de-DE")} Zeichen
           </CardDescription>
         )}
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Newsletter-specific header fields */}
         {variant.channel === "newsletter" && (
-          <div className="space-y-2">
-            <Label>Betreff</Label>
-            {editing ? (
-              <Input
-                value={(metadata.subject as string) || ""}
-                onChange={(e) =>
-                  setMetadata({ ...metadata, subject: e.target.value })
-                }
-              />
-            ) : (
-              <p className="text-sm font-medium">
-                {(metadata.subject as string) || "—"}
-              </p>
-            )}
+          <div className="grid gap-3 rounded-md border bg-muted/30 p-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Betreff</Label>
+              {editing ? (
+                <Input
+                  value={(metadata.subject as string) || ""}
+                  onChange={(e) =>
+                    setMetadata({ ...metadata, subject: e.target.value })
+                  }
+                />
+              ) : (
+                <p className="font-medium">
+                  {(metadata.subject as string) || "—"}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Preheader</Label>
+              {editing ? (
+                <Input
+                  value={(metadata.preheader as string) || ""}
+                  onChange={(e) =>
+                    setMetadata({ ...metadata, preheader: e.target.value })
+                  }
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {(metadata.preheader as string) || "—"}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
+        {/* Blog-specific header fields */}
         {variant.channel === "blog" && (
-          <div className="space-y-2">
-            <Label>Titel</Label>
-            {editing ? (
-              <Input
-                value={(metadata.title as string) || ""}
-                onChange={(e) =>
-                  setMetadata({ ...metadata, title: e.target.value })
-                }
-              />
-            ) : (
-              <p className="text-sm font-medium">
-                {(metadata.title as string) || "—"}
-              </p>
-            )}
+          <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Titel</Label>
+              {editing ? (
+                <Input
+                  value={(metadata.title as string) || ""}
+                  onChange={(e) =>
+                    setMetadata({ ...metadata, title: e.target.value })
+                  }
+                />
+              ) : (
+                <p className="font-medium">{(metadata.title as string) || "—"}</p>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Slug</Label>
+                {editing ? (
+                  <Input
+                    value={(metadata.slug as string) || ""}
+                    onChange={(e) =>
+                      setMetadata({ ...metadata, slug: e.target.value })
+                    }
+                  />
+                ) : (
+                  <p className="text-xs font-mono text-muted-foreground">
+                    /{(metadata.slug as string) || "—"}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Meta-Description</Label>
+                {editing ? (
+                  <Input
+                    value={(metadata.meta_description as string) || ""}
+                    onChange={(e) =>
+                      setMetadata({
+                        ...metadata,
+                        meta_description: e.target.value,
+                      })
+                    }
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {(metadata.meta_description as string) || "—"}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         <div className="space-y-2">
-          <Label>Inhalt</Label>
+          <Label className="text-xs">Inhalt</Label>
           {editing ? (
             <Textarea
               rows={12}
@@ -194,7 +313,7 @@ export function VariantCard({
 
         {(variant.channel === "linkedin" || variant.channel === "instagram") && (
           <div className="space-y-2">
-            <Label>Hashtags</Label>
+            <Label className="text-xs">Hashtags</Label>
             {editing ? (
               <Input
                 value={((metadata.hashtags as string[]) || []).join(" ")}
@@ -207,6 +326,7 @@ export function VariantCard({
                       .filter(Boolean),
                   })
                 }
+                placeholder="hashtag1 hashtag2 hashtag3"
               />
             ) : (
               <div className="flex flex-wrap gap-1">
@@ -220,10 +340,25 @@ export function VariantCard({
           </div>
         )}
 
+        {variant.channel === "blog" &&
+          (metadata.suggested_tags as string[] | undefined)?.length ? (
+          <div className="space-y-2">
+            <Label className="text-xs">Tags</Label>
+            <div className="flex flex-wrap gap-1">
+              {(metadata.suggested_tags as string[]).map((t) => (
+                <Badge key={t} variant="outline">
+                  {t}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           {editing && (
             <>
               <Button size="sm" onClick={save} disabled={pending}>
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Speichern
               </Button>
               <Button
@@ -245,9 +380,21 @@ export function VariantCard({
             </Button>
           )}
           {!editing && variant.status === "in_review" && canApprove && (
-            <Button size="sm" onClick={approve} disabled={pending}>
-              <CheckCircle2 className="h-4 w-4" /> Freigeben
-            </Button>
+            <>
+              <Button size="sm" onClick={approve} disabled={pending}>
+                <CheckCircle2 className="h-4 w-4" /> Freigeben
+              </Button>
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={sendBackToDraft}
+                  disabled={pending}
+                >
+                  Zurück in Entwurf
+                </Button>
+              )}
+            </>
           )}
           {!editing && variant.status === "approved" && canPublish && (
             <Button
@@ -256,7 +403,7 @@ export function VariantCard({
               onClick={markPublished}
               disabled={pending}
             >
-              Als veröffentlicht markieren
+              <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
             </Button>
           )}
         </div>

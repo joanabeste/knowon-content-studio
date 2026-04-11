@@ -5,55 +5,104 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
+import { ChannelPicker } from "./channel-picker";
+import { ALL_CHANNELS, type Channel } from "@/lib/supabase/types";
 import { generateContent } from "./actions";
+import { useToast } from "@/components/ui/toast";
 
 export function GenerateForm() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [channels, setChannels] = useState<Channel[]>(ALL_CHANNELS);
+  const [topic, setTopic] = useState("");
+  const [brief, setBrief] = useState("");
+  const toast = useToast();
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    const form = new FormData(e.currentTarget);
+    if (channels.length === 0) {
+      setError("Wähle mindestens einen Kanal aus.");
+      return;
+    }
+    const form = new FormData();
+    form.set("topic", topic);
+    form.set("brief", brief);
+    for (const c of channels) form.append("channels", c);
     start(async () => {
       const res = await generateContent(form);
-      if (res && "error" in res && res.error) setError(res.error);
+      if (res && "error" in res && res.error) {
+        setError(res.error);
+        toast.show(res.error, "error");
+      }
     });
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-8">
+      <div className="space-y-3">
+        <div>
+          <Label className="text-base">Kanäle</Label>
+          <p className="text-sm text-muted-foreground">
+            Wähle aus, welche Varianten erzeugt werden sollen. Alle sind
+            standardmäßig aktiv.
+          </p>
+        </div>
+        <ChannelPicker value={channels} onChange={setChannels} />
+      </div>
+
       <div className="space-y-2">
-        <Label htmlFor="topic">Thema*</Label>
+        <Label htmlFor="topic" className="text-base">
+          Thema*
+        </Label>
         <Input
           id="topic"
           name="topic"
           required
-          placeholder="z.B. Neuer Online-Kurs zu Kontaktlinsen-Anpassung"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="z.B. Neuer eLearning-Kurs: Glaukom-Diagnostik für MFAs"
         />
       </div>
+
       <div className="space-y-2">
-        <Label htmlFor="brief">Briefing (Stichpunkte, Fakten, Kernbotschaft)</Label>
+        <Label htmlFor="brief" className="text-base">
+          Briefing (Stichpunkte, Fakten, Kernbotschaft)
+        </Label>
         <Textarea
           id="brief"
           name="brief"
           rows={6}
+          value={brief}
+          onChange={(e) => setBrief(e.target.value)}
           placeholder={
-            "- Zielgruppe: Augenoptiker*innen mit 2+ Jahren Erfahrung\n- Kursstart: 15. Mai\n- USP: 100% online, Zertifikat, Expertin Dr. XY\n- CTA: Anmeldung über knowon.de/kontakt"
+            "- Zielgruppe: MFAs in Augenarztpraxen\n- Kursstart: 15. Mai\n- USP: 100% online, Zertifikat, Expertin Dr. XY\n- CTA: Anmeldung über knowon.de/kontakt"
           }
         />
       </div>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" size="lg" disabled={pending}>
-        <Sparkles className="h-4 w-4" />
-        {pending ? "Generiere für alle Kanäle…" : "Content erzeugen"}
-      </Button>
-      {pending && (
-        <p className="text-xs text-muted-foreground">
-          Das dauert je nach Modell ~20-40 Sekunden. Bleib hier.
-        </p>
-      )}
+
+      <div className="flex items-center gap-4">
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {pending
+            ? `Generiere ${channels.length} Kanäle…`
+            : `Content für ${channels.length} ${
+                channels.length === 1 ? "Kanal" : "Kanäle"
+              } erzeugen`}
+        </Button>
+        {pending && (
+          <p className="text-xs text-muted-foreground">
+            Das dauert ~20–40 Sekunden. Bleib hier.
+          </p>
+        )}
+      </div>
     </form>
   );
 }

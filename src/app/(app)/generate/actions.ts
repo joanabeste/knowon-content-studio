@@ -3,25 +3,28 @@
 import { redirect } from "next/navigation";
 import { getOpenAI, OPENAI_TEXT_MODEL } from "@/lib/openai/client";
 import {
-  generatedContentJsonSchema,
-  generatedContentSchema,
+  buildGenerationSchema,
+  parseGeneratedContent,
   type GeneratedContent,
 } from "@/lib/openai/schemas";
 import { buildSystemPrompt, buildUserPrompt } from "@/lib/openai/prompts";
 import { requireUser } from "@/lib/auth";
-import type {
-  BrandVoice,
-  Channel,
-  GoldenExample,
+import {
+  ALL_CHANNELS,
+  type BrandVoice,
+  type Channel,
+  type ChannelBrandVoice,
+  type GoldenExample,
 } from "@/lib/supabase/types";
 
-const CHANNELS: Channel[] = [
-  "linkedin",
-  "instagram",
-  "eyefox",
-  "newsletter",
-  "blog",
-];
+function parseSelectedChannels(formData: FormData): Channel[] {
+  const raw = formData.getAll("channels").map(String) as Channel[];
+  const valid = raw.filter((c) =>
+    (ALL_CHANNELS as string[]).includes(c),
+  ) as Channel[];
+  // Deduplicate
+  return Array.from(new Set(valid));
+}
 
 export async function generateContent(formData: FormData) {
   const { supabase, user, profile } = await requireUser();
@@ -32,28 +35,42 @@ export async function generateContent(formData: FormData) {
 
   const topic = String(formData.get("topic") || "").trim();
   const brief = String(formData.get("brief") || "").trim() || null;
+  const selectedChannels = parseSelectedChannels(formData);
 
   if (!topic) return { error: "Thema fehlt." };
+  if (selectedChannels.length === 0)
+    return { error: "Mindestens einen Kanal auswählen." };
 
-  // Load brand voice + golden examples
-  const [{ data: brandVoice }, { data: examples }] = await Promise.all([
+  // Load brand voice (general + channel overrides) + golden examples
+  const [
+    { data: brandVoice },
+    { data: channelVoices },
+    { data: examples },
+  ] = await Promise.all([
     supabase.from("brand_voice").select("*").eq("id", 1).single(),
-    supabase.from("golden_examples").select("*").order("created_at", { ascending: false }),
+    supabase.from("channel_brand_voice").select("*"),
+    supabase
+      .from("golden_examples")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ]);
 
-  const systemPrompt = buildSystemPrompt({
-    topic,
-    brief,
-    brandVoice: (brandVoice ?? null) as BrandVoice | null,
-    goldenExamples: (examples ?? []) as GoldenExample[],
-  });
+  const channelVoiceMap: Partial<Record<Channel, ChannelBrandVoice>> = {};
+  for (const cv of (channelVoices ?? []) as ChannelBrandVoice[]) {
+    channelVoiceMap[cv.channel] = cv;
+  }
 
-  const userPrompt = buildUserPrompt({
+  const promptInput = {
     topic,
     brief,
+    selectedChannels,
     brandVoice: (brandVoice ?? null) as BrandVoice | null,
+    channelBrandVoices: channelVoiceMap,
     goldenExamples: (examples ?? []) as GoldenExample[],
-  });
+  };
+
+  const systemPrompt = buildSystemPrompt(promptInput);
+  const userPrompt = buildUserPrompt(promptInput);
 
   let parsed: GeneratedContent;
   try {
@@ -67,11 +84,11 @@ export async function generateContent(formData: FormData) {
       ],
       response_format: {
         type: "json_schema",
-        json_schema: generatedContentJsonSchema,
+        json_schema: buildGenerationSchema(selectedChannels),
       },
     });
     const raw = completion.choices[0]?.message?.content ?? "";
-    parsed = generatedContentSchema.parse(JSON.parse(raw));
+    parsed = parseGeneratedContent(JSON.parse(raw), selectedChannels);
   } catch (err) {
     console.error("[generateContent] OpenAI error", err);
     return {
@@ -80,13 +97,14 @@ export async function generateContent(formData: FormData) {
     };
   }
 
-  // Persist project + 5 variants (version 1)
+  // Persist project + variants (only for selected channels)
   const { data: project, error: projErr } = await supabase
     .from("content_projects")
     .insert({
       topic,
       brief,
       status: "draft",
+      requested_channels: selectedChannels,
       created_by: user.id,
     })
     .select("id")
@@ -97,25 +115,24 @@ export async function generateContent(formData: FormData) {
     return { error: "Projekt konnte nicht gespeichert werden." };
   }
 
-  const variantRows = CHANNELS.map((channel) => {
-    const v = parsed[channel];
+  const variantRows = selectedChannels.map((channel) => {
     let body = "";
     let metadata: Record<string, unknown> = {};
-    if (channel === "linkedin") {
+    if (channel === "linkedin" && parsed.linkedin) {
       body = parsed.linkedin.body;
       metadata = { hashtags: parsed.linkedin.hashtags };
-    } else if (channel === "instagram") {
+    } else if (channel === "instagram" && parsed.instagram) {
       body = parsed.instagram.caption;
       metadata = { hashtags: parsed.instagram.hashtags };
-    } else if (channel === "eyefox") {
+    } else if (channel === "eyefox" && parsed.eyefox) {
       body = parsed.eyefox.body;
-    } else if (channel === "newsletter") {
+    } else if (channel === "newsletter" && parsed.newsletter) {
       body = parsed.newsletter.html_body;
       metadata = {
         subject: parsed.newsletter.subject,
         preheader: parsed.newsletter.preheader,
       };
-    } else if (channel === "blog") {
+    } else if (channel === "blog" && parsed.blog) {
       body = parsed.blog.html_body;
       metadata = {
         title: parsed.blog.title,
@@ -150,7 +167,7 @@ export async function generateContent(formData: FormData) {
     action: "generated",
     target_type: "content_project",
     target_id: project.id,
-    payload: { topic },
+    payload: { topic, channels: selectedChannels },
   });
 
   redirect(`/projects/${project.id}`);

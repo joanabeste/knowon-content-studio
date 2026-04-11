@@ -8,13 +8,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { CHANNEL_LABELS, type Channel } from "@/lib/supabase/types";
 
 export default async function ProjectsPage() {
   const { supabase } = await requireUser();
 
   const { data: projects } = await supabase
     .from("content_projects")
-    .select("id, topic, brief, status, created_at")
+    .select("id, topic, brief, requested_channels, created_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -26,35 +27,48 @@ export default async function ProjectsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4">
-        {projects?.map((p) => (
-          <Link key={p.id} href={`/projects/${p.id}`}>
-            <Card className="transition-colors hover:border-primary">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <CardTitle className="text-lg">{p.topic}</CardTitle>
-                  <Badge variant="muted">{p.status}</Badge>
-                </div>
-              </CardHeader>
-              {p.brief && (
-                <CardContent>
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {p.brief}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {formatDate(p.created_at)}
-                  </p>
+      {!projects?.length ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Noch keine Projekte.{" "}
+            <Link href="/generate" className="text-primary underline">
+              Erstelle dein erstes
+            </Link>
+            .
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {projects.map((p) => (
+            <Link key={p.id} href={`/projects/${p.id}`}>
+              <Card className="transition-colors hover:border-primary">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <CardTitle className="text-lg">{p.topic}</CardTitle>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatDate(p.created_at)}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {p.brief && (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {p.brief}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {((p.requested_channels ?? []) as Channel[]).map((ch) => (
+                      <Badge key={ch} variant="secondary">
+                        {CHANNEL_LABELS[ch]}
+                      </Badge>
+                    ))}
+                  </div>
                 </CardContent>
-              )}
-            </Card>
-          </Link>
-        ))}
-        {!projects?.length && (
-          <p className="text-sm text-muted-foreground">
-            Noch keine Projekte.
-          </p>
-        )}
-      </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

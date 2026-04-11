@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:admin": "node --env-file=.env.local scripts/seed-admin.mjs",
+    "seed:brand": "node --env-file=.env.local scripts/seed-brand-voice.mjs"
   },
   "dependencies": {
     "next": "^15.0.3",

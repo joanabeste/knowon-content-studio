@@ -1,101 +1,163 @@
 import { z } from "zod";
+import type { Channel } from "@/lib/supabase/types";
 
-// Schema for the structured output OpenAI should return.
-// Kept simple (only strings/arrays) so it works with json_schema mode.
-export const generatedContentSchema = z.object({
-  linkedin: z.object({
-    body: z.string().describe("LinkedIn-Post-Text, max. 3000 Zeichen, mit Zeilenumbrüchen."),
-    hashtags: z.array(z.string()).describe("3-6 Hashtags ohne #-Zeichen."),
-  }),
-  instagram: z.object({
-    caption: z.string().describe("Instagram-Caption, max. 2200 Zeichen."),
-    hashtags: z.array(z.string()).describe("10-20 Hashtags ohne #-Zeichen."),
-  }),
-  eyefox: z.object({
-    body: z.string().describe("Eyefox-Partnerseiten-Text: informativ, branchenfokussiert, 200-500 Wörter."),
-  }),
-  newsletter: z.object({
-    subject: z.string().describe("Betreffzeile, max. 60 Zeichen."),
-    preheader: z.string().describe("Vorschautext, 80-120 Zeichen."),
-    html_body: z.string().describe("Newsletter-Inhalt als einfaches HTML (p, h2, ul, a, strong)."),
-  }),
-  blog: z.object({
-    title: z.string().describe("Blog-Titel, SEO-freundlich."),
-    slug: z.string().describe("URL-Slug, kleingeschrieben, Bindestriche."),
-    excerpt: z.string().describe("Kurzer Anreißer, 150-200 Zeichen."),
-    html_body: z.string().describe("Vollständiger Blog-Inhalt als HTML (h2, h3, p, ul, strong, a)."),
-    meta_description: z.string().describe("SEO-Meta-Description, 140-160 Zeichen."),
-    suggested_tags: z.array(z.string()).describe("3-6 vorgeschlagene Tags."),
-  }),
+// =====================================================================
+// Per-channel Zod schemas — used for runtime parsing of OpenAI output.
+// =====================================================================
+
+const linkedinSchema = z.object({
+  body: z.string(),
+  hashtags: z.array(z.string()),
 });
 
-export type GeneratedContent = z.infer<typeof generatedContentSchema>;
+const instagramSchema = z.object({
+  caption: z.string(),
+  hashtags: z.array(z.string()),
+});
 
-// JSON Schema for OpenAI's response_format (strict mode).
-export const generatedContentJsonSchema = {
-  name: "marketing_content",
-  strict: true,
-  schema: {
+const eyefoxSchema = z.object({
+  body: z.string(),
+});
+
+const newsletterSchema = z.object({
+  subject: z.string(),
+  preheader: z.string(),
+  html_body: z.string(),
+});
+
+const blogSchema = z.object({
+  title: z.string(),
+  slug: z.string(),
+  excerpt: z.string(),
+  html_body: z.string(),
+  meta_description: z.string(),
+  suggested_tags: z.array(z.string()),
+});
+
+export const channelZodSchemas = {
+  linkedin: linkedinSchema,
+  instagram: instagramSchema,
+  eyefox: eyefoxSchema,
+  newsletter: newsletterSchema,
+  blog: blogSchema,
+} as const;
+
+export type LinkedInContent = z.infer<typeof linkedinSchema>;
+export type InstagramContent = z.infer<typeof instagramSchema>;
+export type EyefoxContent = z.infer<typeof eyefoxSchema>;
+export type NewsletterContent = z.infer<typeof newsletterSchema>;
+export type BlogContent = z.infer<typeof blogSchema>;
+
+export type GeneratedContent = {
+  linkedin?: LinkedInContent;
+  instagram?: InstagramContent;
+  eyefox?: EyefoxContent;
+  newsletter?: NewsletterContent;
+  blog?: BlogContent;
+};
+
+/**
+ * Parses OpenAI's JSON response into a typed object, validating each
+ * selected channel independently. Channels not in `selectedChannels`
+ * are ignored even if present in the payload.
+ */
+export function parseGeneratedContent(
+  raw: unknown,
+  selectedChannels: Channel[],
+): GeneratedContent {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Antwort ist kein Objekt");
+  }
+  const payload = raw as Record<string, unknown>;
+  const result: GeneratedContent = {};
+  for (const ch of selectedChannels) {
+    const part = payload[ch];
+    if (part === undefined) {
+      throw new Error(`Kanal '${ch}' fehlt in der Antwort`);
+    }
+    result[ch] = channelZodSchemas[ch].parse(part) as never;
+  }
+  return result;
+}
+
+// =====================================================================
+// JSON Schema builder (for OpenAI `response_format: json_schema`).
+// Only includes the channels that were actually requested, so the
+// model cannot "waste tokens" on channels we don't want.
+// =====================================================================
+
+const channelJsonSchemas: Record<Channel, Record<string, unknown>> = {
+  linkedin: {
     type: "object",
     additionalProperties: false,
-    required: ["linkedin", "instagram", "eyefox", "newsletter", "blog"],
+    required: ["body", "hashtags"],
     properties: {
-      linkedin: {
-        type: "object",
-        additionalProperties: false,
-        required: ["body", "hashtags"],
-        properties: {
-          body: { type: "string" },
-          hashtags: { type: "array", items: { type: "string" } },
-        },
-      },
-      instagram: {
-        type: "object",
-        additionalProperties: false,
-        required: ["caption", "hashtags"],
-        properties: {
-          caption: { type: "string" },
-          hashtags: { type: "array", items: { type: "string" } },
-        },
-      },
-      eyefox: {
-        type: "object",
-        additionalProperties: false,
-        required: ["body"],
-        properties: {
-          body: { type: "string" },
-        },
-      },
-      newsletter: {
-        type: "object",
-        additionalProperties: false,
-        required: ["subject", "preheader", "html_body"],
-        properties: {
-          subject: { type: "string" },
-          preheader: { type: "string" },
-          html_body: { type: "string" },
-        },
-      },
-      blog: {
-        type: "object",
-        additionalProperties: false,
-        required: [
-          "title",
-          "slug",
-          "excerpt",
-          "html_body",
-          "meta_description",
-          "suggested_tags",
-        ],
-        properties: {
-          title: { type: "string" },
-          slug: { type: "string" },
-          excerpt: { type: "string" },
-          html_body: { type: "string" },
-          meta_description: { type: "string" },
-          suggested_tags: { type: "array", items: { type: "string" } },
-        },
-      },
+      body: { type: "string" },
+      hashtags: { type: "array", items: { type: "string" } },
     },
   },
-} as const;
+  instagram: {
+    type: "object",
+    additionalProperties: false,
+    required: ["caption", "hashtags"],
+    properties: {
+      caption: { type: "string" },
+      hashtags: { type: "array", items: { type: "string" } },
+    },
+  },
+  eyefox: {
+    type: "object",
+    additionalProperties: false,
+    required: ["body"],
+    properties: {
+      body: { type: "string" },
+    },
+  },
+  newsletter: {
+    type: "object",
+    additionalProperties: false,
+    required: ["subject", "preheader", "html_body"],
+    properties: {
+      subject: { type: "string" },
+      preheader: { type: "string" },
+      html_body: { type: "string" },
+    },
+  },
+  blog: {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "title",
+      "slug",
+      "excerpt",
+      "html_body",
+      "meta_description",
+      "suggested_tags",
+    ],
+    properties: {
+      title: { type: "string" },
+      slug: { type: "string" },
+      excerpt: { type: "string" },
+      html_body: { type: "string" },
+      meta_description: { type: "string" },
+      suggested_tags: { type: "array", items: { type: "string" } },
+    },
+  },
+};
+
+export function buildGenerationSchema(channels: Channel[]) {
+  const properties: Record<string, Record<string, unknown>> = {};
+  for (const ch of channels) {
+    properties[ch] = channelJsonSchemas[ch];
+  }
+  return {
+    name: "marketing_content",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: channels,
+      properties,
+    },
+  };
+}

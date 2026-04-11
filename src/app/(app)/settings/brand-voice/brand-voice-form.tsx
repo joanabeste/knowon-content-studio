@@ -1,24 +1,26 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { saveBrandVoice } from "./actions";
 import type { BrandVoice } from "@/lib/supabase/types";
 
 export function BrandVoiceForm({ initial }: { initial: BrandVoice | null }) {
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setMsg(null);
     const form = new FormData(e.currentTarget);
     start(async () => {
       const res = await saveBrandVoice(form);
-      setMsg("error" in res && res.error ? res.error : "Gespeichert.");
+      if ("error" in res && res.error) toast.show(res.error, "error");
+      else toast.show("Gespeichert.", "success");
     });
   };
 
@@ -75,9 +77,9 @@ export function BrandVoiceForm({ initial }: { initial: BrandVoice | null }) {
       </div>
       <div className="flex items-center gap-4">
         <Button type="submit" disabled={pending}>
-          {pending ? "Speichern…" : "Speichern"}
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Speichern
         </Button>
-        {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
       </div>
     </form>
   );
