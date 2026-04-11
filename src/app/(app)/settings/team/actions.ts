@@ -22,8 +22,8 @@ export async function createUser(formData: FormData) {
   if (!email) return { error: "E-Mail ist erforderlich." };
   if (!/^\S+@\S+\.\S+$/.test(email))
     return { error: "Bitte eine gültige E-Mail." };
-  if (!password || password.length < 5)
-    return { error: "Passwort (mind. 5 Zeichen) erforderlich." };
+  if (!password || password.length < 12)
+    return { error: "Passwort (mind. 12 Zeichen) erforderlich." };
   if (!VALID_ROLES.includes(role))
     return { error: "Ungültige Rolle." };
 
@@ -36,7 +36,16 @@ export async function createUser(formData: FormData) {
     user_metadata: { full_name: fullName || null, role },
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    // Supabase auth errors sometimes leak constraint names and
+    // schema hints. Log the detail server-side, return a generic
+    // message the client can display.
+    console.error("[team.createUser] supabase error", error);
+    const friendly = /already|exists|duplicate/i.test(error.message)
+      ? "Diese E-Mail existiert bereits."
+      : "Anlegen fehlgeschlagen.";
+    return { error: friendly };
+  }
 
   // Ensure profile row reflects exact values (trigger may race with metadata)
   if (data.user) {
@@ -77,7 +86,10 @@ export async function deleteUser(userId: string) {
   const admin = getSupabaseAdmin();
   // Cascades via ON DELETE CASCADE on profiles → auth.users
   const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[team.deleteUser] supabase error", error);
+    return { error: "Löschen fehlgeschlagen." };
+  }
 
   revalidatePath("/settings/team");
   return { ok: true };
@@ -85,8 +97,8 @@ export async function deleteUser(userId: string) {
 
 export async function resetUserPassword(userId: string, newPassword: string) {
   await requireRole("admin");
-  if (!newPassword || newPassword.length < 5) {
-    return { error: "Passwort (mind. 5 Zeichen)." };
+  if (!newPassword || newPassword.length < 12) {
+    return { error: "Passwort (mind. 12 Zeichen)." };
   }
   const admin = getSupabaseAdmin();
   const { error } = await admin.auth.admin.updateUserById(userId, {
@@ -99,8 +111,8 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 // Self-service: user changes their own password
 export async function changeOwnPassword(newPassword: string) {
   const { user } = await requireUser();
-  if (!newPassword || newPassword.length < 5) {
-    return { error: "Passwort (mind. 5 Zeichen)." };
+  if (!newPassword || newPassword.length < 12) {
+    return { error: "Passwort (mind. 12 Zeichen)." };
   }
   const admin = getSupabaseAdmin();
   const { error } = await admin.auth.admin.updateUserById(user.id, {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { fetchAndParseFeed } from "@/lib/rss/parser";
+import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import type { Channel, ContentFeed, SourcePostSource } from "@/lib/supabase/types";
 
 const VALID_CHANNELS: Channel[] = [
@@ -22,8 +23,8 @@ export async function addFeed(formData: FormData) {
   const channel = String(formData.get("channel") || "") as Channel;
 
   if (!name) return { error: "Name ist erforderlich." };
-  if (!url || !/^https?:\/\//.test(url))
-    return { error: "Bitte eine gültige URL angeben." };
+  const guard = assertPublicHttpUrl(url);
+  if (!guard.ok) return { error: guard.error };
   if (!VALID_CHANNELS.includes(channel))
     return { error: "Ungültiger Kanal." };
 

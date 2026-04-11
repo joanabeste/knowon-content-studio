@@ -138,8 +138,8 @@ export function CreateUserForm() {
             name="password"
             type={visible ? "text" : "password"}
             required
-            minLength={5}
-            placeholder="mind. 5 Zeichen"
+            minLength={12}
+            placeholder="mind. 12 Zeichen"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);

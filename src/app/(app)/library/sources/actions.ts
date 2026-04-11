@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole, requireUser } from "@/lib/auth";
 import { fetchWordpressPosts, stripHtml } from "@/lib/wordpress/client";
 import { scrapeEyefoxPartnerPage } from "@/lib/eyefox/scraper";
+import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import type { Channel, SourcePostSource } from "@/lib/supabase/types";
 
 const DEFAULT_WP_BASE =
@@ -123,14 +124,22 @@ async function importSingleUrl(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
 ): Promise<ImportOne> {
+  // SSRF guard — reject internal / private / metadata URLs before
+  // issuing any fetch. Without this an authenticated team member
+  // could trick the Vercel runtime into fetching 169.254.169.254
+  // (cloud metadata) and leaking instance credentials.
+  const guard = assertPublicHttpUrl(url);
+  if (!guard.ok) return { ok: false, url, error: guard.error };
+
   try {
-    const res = await fetch(url, {
+    const res = await fetch(guard.url.toString(), {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; KnowOnContentStudio/1.0; +https://www.knowon.de)",
         Accept: "text/html,application/xhtml+xml",
       },
       cache: "no-store",
+      redirect: "follow",
     });
     if (!res.ok) return { ok: false, url, error: `${res.status}` };
     const html = await res.text();

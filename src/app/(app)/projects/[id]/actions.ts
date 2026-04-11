@@ -14,6 +14,7 @@ import {
   fetchWordpressCategoryNames,
 } from "@/lib/wordpress/client";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
+import { assertImageMatches } from "@/lib/security/image-magic";
 import {
   ALL_CHANNELS,
   type Channel,
@@ -476,6 +477,18 @@ export async function uploadBlogImage(
   }
 
   const rawBuffer = Buffer.from(await file.arrayBuffer());
+
+  // Magic-byte verification — `file.type` from the browser is not
+  // trustworthy. Before we hand the buffer to sharp or Supabase
+  // storage we make sure it's actually one of the formats we allow
+  // (PNG / JPEG / WebP for blog images — no SVG here, we don't want
+  // active content in blog hero images).
+  const magic = assertImageMatches(rawBuffer, file.type, [
+    "png",
+    "jpeg",
+    "webp",
+  ]);
+  if (!magic.ok) return { error: magic.error };
 
   // Uploaded images also get the KnowOn brand overlay + logo baked in —
   // same treatment as AI-generated ones, so everything in the blog

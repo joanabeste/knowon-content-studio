@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { assertImageMatches } from "@/lib/security/image-magic";
 import type { Channel } from "@/lib/supabase/types";
 
 export async function saveBrandVoice(formData: FormData) {
@@ -73,19 +74,32 @@ export async function uploadBrandLogo(
     };
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Verify the file *bytes* match the declared MIME type. `file.type`
+  // comes from the browser and can be forged trivially — without this
+  // check a malicious admin could upload a disguised executable / html
+  // file as "image/png" and we'd happily serve it as a brand logo.
+  const magic = assertImageMatches(buffer, file.type, [
+    "png",
+    "jpeg",
+    "webp",
+    "svg",
+  ]);
+  if (!magic.ok) return { error: magic.error };
+
   const ext =
-    file.type === "image/svg+xml"
+    magic.kind === "svg"
       ? "svg"
-      : file.type === "image/webp"
+      : magic.kind === "webp"
         ? "webp"
-        : file.type === "image/jpeg"
+        : magic.kind === "jpeg"
           ? "jpg"
           : "png";
 
   // Content-addressable path via random id so browsers don't serve a
   // stale cached version when the logo changes.
   const path = `brand/logo-${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
 
   // Use the admin client so we're not subject to the bucket's RLS
   // (which scopes uploads to project folders, not brand/).

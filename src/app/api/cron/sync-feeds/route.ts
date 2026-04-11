@@ -7,16 +7,22 @@ import { doSyncFeed } from "@/app/(app)/library/feeds/actions";
  *
  * Invocation: Vercel calls this URL per the schedule in vercel.json.
  * Security: Vercel adds an `Authorization: Bearer <CRON_SECRET>` header
- * automatically if the env var CRON_SECRET is set. We verify it here
- * so that external calls can't trigger a sync.
+ * automatically when the env var CRON_SECRET is set. We require the
+ * env var AND a matching header — if CRON_SECRET is unset the
+ * endpoint is hard-closed (fail-closed), otherwise the endpoint would
+ * be a free public trigger for OpenAI costs and bandwidth.
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const header = req.headers.get("authorization");
-    if (header !== `Bearer ${secret}`) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+  if (!secret) {
+    console.error(
+      "[cron/sync-feeds] CRON_SECRET env var is not set — refusing to run",
+    );
+    return new NextResponse("Misconfigured", { status: 500 });
+  }
+  const header = req.headers.get("authorization");
+  if (header !== `Bearer ${secret}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
   const admin = getSupabaseAdmin();

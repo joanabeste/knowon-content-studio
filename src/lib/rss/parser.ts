@@ -7,6 +7,7 @@
  * namespaces in weird ways, we'll still pull out the important bits
  * thanks to best-effort matching.
  */
+import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 
 export interface FeedItem {
   guid: string;
@@ -17,7 +18,13 @@ export interface FeedItem {
 }
 
 export async function fetchAndParseFeed(url: string): Promise<FeedItem[]> {
-  const res = await fetch(url, {
+  // SSRF guard — feed URLs come from admin-provided input but we
+  // still refuse to fetch internal/private/metadata hosts.
+  const guard = assertPublicHttpUrl(url);
+  if (!guard.ok) {
+    throw new Error(guard.error);
+  }
+  const res = await fetch(guard.url.toString(), {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (compatible; KnowOnContentStudio/1.0; +https://www.knowon.de)",

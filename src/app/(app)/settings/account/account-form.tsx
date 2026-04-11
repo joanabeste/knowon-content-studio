@@ -27,8 +27,8 @@ export function AccountForm({ initialName }: { initialName: string | null }) {
 
   const onChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 5) {
-      toast.show("Passwort mind. 5 Zeichen.", "error");
+    if (password.length < 12) {
+      toast.show("Passwort mind. 12 Zeichen.", "error");
       return;
     }
     if (password !== confirm) {
@@ -82,7 +82,7 @@ export function AccountForm({ initialName }: { initialName: string | null }) {
             <Input
               id="new-password"
               type="password"
-              minLength={5}
+              minLength={12}
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -93,7 +93,7 @@ export function AccountForm({ initialName }: { initialName: string | null }) {
             <Input
               id="confirm-password"
               type="password"
-              minLength={5}
+              minLength={12}
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
