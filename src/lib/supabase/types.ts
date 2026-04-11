@@ -51,19 +51,30 @@ export interface ChannelBrandVoice {
   updated_by: string | null;
 }
 
-export interface GoldenExample {
-  id: string;
-  channel: Channel;
-  title: string | null;
-  body: string;
-  note: string | null;
-  created_at: string;
-  created_by: string | null;
-}
+export type SourcePostSource =
+  | "wordpress"
+  | "linkedin"
+  | "instagram"
+  | "eyefox"
+  | "newsletter"
+  | "url_import"
+  | "manual"
+  | "csv";
+
+export const SOURCE_LABELS: Record<SourcePostSource, string> = {
+  wordpress: "WordPress",
+  linkedin: "LinkedIn",
+  instagram: "Instagram",
+  eyefox: "Eyefox",
+  newsletter: "Newsletter",
+  url_import: "URL-Import",
+  manual: "Manuell",
+  csv: "CSV-Import",
+};
 
 export interface SourcePost {
   id: string;
-  source: "wordpress" | "manual" | "csv";
+  source: SourcePostSource;
   external_id: string | null;
   url: string | null;
   title: string | null;
@@ -71,6 +82,8 @@ export interface SourcePost {
   published_at: string | null;
   imported_at: string;
   tags: string[] | null;
+  channel: Channel;
+  is_featured: boolean;
 }
 
 export interface ContentProject {

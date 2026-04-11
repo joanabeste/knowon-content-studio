@@ -6,48 +6,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { Loader2, RefreshCw } from "lucide-react";
-import { syncWordpressPosts } from "./actions";
+import { syncEyefoxPartnerPage } from "./actions";
 
-export function WpSyncButton() {
-  const [baseUrl, setBaseUrl] = useState("https://www.knowon.de");
-  const [limit, setLimit] = useState(20);
+export function EyefoxSyncButton() {
+  const [partnerUrl, setPartnerUrl] = useState(
+    "https://www.eyefox.com/partner/3695/knowon-gmbh",
+  );
   const [pending, start] = useTransition();
   const toast = useToast();
 
   const onSync = () => {
     start(async () => {
-      const res = await syncWordpressPosts({ baseUrl, limit });
+      const res = await syncEyefoxPartnerPage({ partnerUrl });
       if ("error" in res && res.error) {
         toast.show(res.error, "error");
       } else if ("synced" in res) {
         toast.show(
-          `${res.synced} Blog-Beiträge synchronisiert.`,
-          "success",
+          `${res.synced} Eyefox-Beiträge importiert.`,
+          res.synced === 0 ? "info" : "success",
         );
       }
     });
   };
 
   return (
-    <div className="grid gap-3 md:grid-cols-[1fr_120px_auto] md:items-end">
+    <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="wp-url">WordPress-URL</Label>
+        <Label htmlFor="eyefox-url">Partnerseiten-URL</Label>
         <Input
-          id="wp-url"
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="https://www.knowon.de"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="wp-limit">Anzahl</Label>
-        <Input
-          id="wp-limit"
-          type="number"
-          min={1}
-          max={100}
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
+          id="eyefox-url"
+          value={partnerUrl}
+          onChange={(e) => setPartnerUrl(e.target.value)}
+          placeholder="https://www.eyefox.com/partner/3695/knowon-gmbh"
         />
       </div>
       <Button onClick={onSync} disabled={pending}>

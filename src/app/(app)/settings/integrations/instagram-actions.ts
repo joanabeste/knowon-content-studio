@@ -7,6 +7,7 @@ import {
   disconnectInstagram,
 } from "@/lib/instagram/connection";
 import { fetchInstagramMedia } from "@/lib/instagram/client";
+import type { SourcePostSource } from "@/lib/supabase/types";
 
 export async function disconnectInstagramAction() {
   await requireRole("admin");
@@ -31,31 +32,26 @@ export async function syncInstagramMedia() {
     return { error: `Instagram-Abruf fehlgeschlagen: ${msg}` };
   }
 
-  // Dedupe by IG ID stored in note
-  const { data: existing } = await supabase
-    .from("golden_examples")
-    .select("note")
-    .eq("channel", "instagram");
-  const existingIds = new Set(
-    (existing ?? [])
-      .map((e) => e.note)
-      .filter(Boolean)
-      .map((n) => (n as string).match(/Instagram-ID: (\S+)/)?.[1])
-      .filter(Boolean),
-  );
-
   const rows = media
-    .filter((m) => m.caption && !existingIds.has(m.id))
+    .filter((m) => m.caption)
     .map((m) => ({
-      channel: "instagram" as const,
-      title: (m.caption ?? "").slice(0, 80),
+      source: "instagram" as SourcePostSource,
+      external_id: m.id,
+      url: m.permalink ?? null,
+      title: (m.caption ?? "").split("\n")[0]?.slice(0, 120) || null,
       body: m.caption ?? "",
-      note: `Instagram-ID: ${m.id}${m.permalink ? ` · ${m.permalink}` : ""}`,
-      created_by: user.id,
+      published_at: m.timestamp
+        ? new Date(m.timestamp).toISOString()
+        : null,
+      imported_at: new Date().toISOString(),
+      channel: "instagram" as const,
+      is_featured: false,
     }));
 
   if (rows.length) {
-    const { error } = await supabase.from("golden_examples").insert(rows);
+    const { error } = await supabase
+      .from("source_posts")
+      .upsert(rows, { onConflict: "source,external_id" });
     if (error) return { error: error.message };
   }
 
@@ -65,7 +61,7 @@ export async function syncInstagramMedia() {
     payload: { fetched: media.length, imported: rows.length },
   });
 
-  revalidatePath("/library/examples");
+  revalidatePath("/library/sources");
   revalidatePath("/settings/integrations");
   return { ok: true, fetched: media.length, imported: rows.length };
 }

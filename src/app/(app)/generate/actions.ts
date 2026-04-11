@@ -15,7 +15,7 @@ import {
   type Channel,
   type ChannelBrandVoice,
   type ContextDocument,
-  type GoldenExample,
+  type SourcePost,
 } from "@/lib/supabase/types";
 
 function parseSelectedChannels(formData: FormData): Channel[] {
@@ -42,19 +42,24 @@ export async function generateContent(formData: FormData) {
   if (selectedChannels.length === 0)
     return { error: "Mindestens einen Kanal auswählen." };
 
-  // Load brand voice (general + channel overrides) + golden examples + active context documents
+  // Load brand voice (general + channel overrides) + inspiration library + context documents.
+  // The library query pulls the top candidates per channel for sampling.
+  // 30 per selected channel is plenty — the prompt builder picks the best 4.
   const [
     { data: brandVoice },
     { data: channelVoices },
-    { data: examples },
+    { data: inspirations },
     { data: docs },
   ] = await Promise.all([
     supabase.from("brand_voice").select("*").eq("id", 1).single(),
     supabase.from("channel_brand_voice").select("*"),
     supabase
-      .from("golden_examples")
+      .from("source_posts")
       .select("*")
-      .order("created_at", { ascending: false }),
+      .in("channel", selectedChannels)
+      .order("is_featured", { ascending: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(30 * selectedChannels.length),
     supabase
       .from("context_documents")
       .select("*")
@@ -73,7 +78,7 @@ export async function generateContent(formData: FormData) {
     selectedChannels,
     brandVoice: (brandVoice ?? null) as BrandVoice | null,
     channelBrandVoices: channelVoiceMap,
-    goldenExamples: (examples ?? []) as GoldenExample[],
+    sourcePosts: (inspirations ?? []) as SourcePost[],
     contextDocuments: (docs ?? []) as ContextDocument[],
   };
 

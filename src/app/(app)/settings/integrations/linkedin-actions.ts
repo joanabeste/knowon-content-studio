@@ -7,6 +7,7 @@ import {
   disconnectLinkedin,
 } from "@/lib/linkedin/connection";
 import { fetchOwnPosts } from "@/lib/linkedin/client";
+import type { SourcePostSource } from "@/lib/supabase/types";
 
 export async function disconnectLinkedinAction() {
   await requireRole("admin");
@@ -31,31 +32,26 @@ export async function syncLinkedinPosts() {
     return { error: `LinkedIn-Abruf fehlgeschlagen: ${msg}` };
   }
 
-  // Existing example titles (dedupe)
-  const { data: existing } = await supabase
-    .from("golden_examples")
-    .select("note")
-    .eq("channel", "linkedin");
-  const existingIds = new Set(
-    (existing ?? [])
-      .map((e) => e.note)
-      .filter(Boolean)
-      .map((n) => (n as string).match(/LinkedIn-ID: (\S+)/)?.[1])
-      .filter(Boolean),
-  );
-
   const rows = posts
-    .filter((p) => p.commentary && !existingIds.has(p.id))
+    .filter((p) => p.commentary)
     .map((p) => ({
-      channel: "linkedin" as const,
-      title: (p.commentary ?? "").slice(0, 80),
+      source: "linkedin" as SourcePostSource,
+      external_id: p.id,
+      url: null,
+      title: (p.commentary ?? "").split("\n")[0]?.slice(0, 120) || null,
       body: p.commentary ?? "",
-      note: `LinkedIn-ID: ${p.id}`,
-      created_by: user.id,
+      published_at: p.createdAt
+        ? new Date(p.createdAt).toISOString()
+        : null,
+      imported_at: new Date().toISOString(),
+      channel: "linkedin" as const,
+      is_featured: false,
     }));
 
   if (rows.length) {
-    const { error } = await supabase.from("golden_examples").insert(rows);
+    const { error } = await supabase
+      .from("source_posts")
+      .upsert(rows, { onConflict: "source,external_id" });
     if (error) return { error: error.message };
   }
 
@@ -65,7 +61,7 @@ export async function syncLinkedinPosts() {
     payload: { fetched: posts.length, imported: rows.length },
   });
 
-  revalidatePath("/library/examples");
+  revalidatePath("/library/sources");
   revalidatePath("/settings/integrations");
   return { ok: true, fetched: posts.length, imported: rows.length };
 }
