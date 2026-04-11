@@ -141,7 +141,8 @@ export default async function ProjectDetailPage({
             Erstellt {formatDate(p.created_at)}
           </span>
         </div>
-        <div className="flex items-start justify-between gap-4">
+        {/* pr-14 leaves room for the fixed top-right help button */}
+        <div className="flex items-start justify-between gap-4 pr-14">
           <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
           {canDelete && (
             <DeleteProjectButton projectId={p.id} topic={p.topic} />

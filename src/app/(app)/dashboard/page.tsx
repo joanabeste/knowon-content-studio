@@ -56,7 +56,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* pr-14 reserves space for the fixed top-right help button so
+          the "Neuen Content erzeugen" CTA doesn't overlap with it on
+          viewports narrower than ~1200px. */}
+      <div className="flex flex-wrap items-start justify-between gap-4 pr-14">
         <div>
           <h1 className="text-3xl font-bold">
             Hallo {profile.full_name?.split(" ")[0] || "!"}
