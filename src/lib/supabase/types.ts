@@ -135,3 +135,18 @@ export interface ContextDocument {
   created_at: string;
   updated_at: string;
 }
+
+export type PlatformName = "linkedin" | "instagram";
+
+export interface PlatformConnection {
+  platform: PlatformName;
+  access_token_encrypted: string | null;
+  refresh_token_encrypted: string | null;
+  expires_at: string | null;
+  external_id: string | null;
+  external_name: string | null;
+  scopes: string[] | null;
+  connected_by: string | null;
+  connected_at: string | null;
+  updated_at: string;
+}
