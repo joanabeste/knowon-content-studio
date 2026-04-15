@@ -128,6 +128,8 @@ export interface ContentVariant {
   updated_by: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  scheduled_at: string | null;
+  published_at: string | null;
   created_at: string;
 }
 

@@ -86,6 +86,12 @@ export async function setVariantStatus(
     update.reviewed_by = user.id;
     update.reviewed_at = new Date().toISOString();
   }
+  if (status === "published") {
+    const existing = variant as ContentVariant | null;
+    if (!existing?.published_at) {
+      update.published_at = new Date().toISOString();
+    }
+  }
 
   const { error } = await supabase
     .from("content_variants")
@@ -142,6 +148,53 @@ export async function setVariantStatus(
   });
 
   if (variant) revalidatePath(`/projects/${variant.project_id}`);
+  return { ok: true };
+}
+
+export async function setVariantSchedule(
+  variantId: string,
+  scheduledAt: string | null,
+) {
+  const { supabase, user, profile } = await requireUser();
+
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen Posts einplanen." };
+  }
+
+  // Normalize: accept ISO strings or `YYYY-MM-DDTHH:mm` from
+  // <input type="datetime-local">. An empty string clears the
+  // schedule (for when a user wants to un-plan a post).
+  let normalized: string | null = null;
+  if (scheduledAt && scheduledAt.trim() !== "") {
+    const d = new Date(scheduledAt);
+    if (Number.isNaN(d.getTime())) {
+      return { error: "Ungültiges Datum." };
+    }
+    normalized = d.toISOString();
+  }
+
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("project_id")
+    .eq("id", variantId)
+    .single();
+
+  const { error } = await supabase
+    .from("content_variants")
+    .update({ scheduled_at: normalized, updated_by: user.id })
+    .eq("id", variantId);
+
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: normalized ? "variant_scheduled" : "variant_unscheduled",
+    target_type: "content_variant",
+    target_id: variantId,
+  });
+
+  if (variant) revalidatePath(`/projects/${variant.project_id}`);
+  revalidatePath("/calendar");
   return { ok: true };
 }
 

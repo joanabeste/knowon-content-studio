@@ -13,7 +13,8 @@ export function LoginForm() {
   const search = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const urlError = search.get("error");
+  const [error, setError] = useState<string | null>(urlError);
   const [pending, start] = useTransition();
 
   const onSubmit = (e: React.FormEvent) => {

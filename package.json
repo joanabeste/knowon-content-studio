@@ -12,6 +12,7 @@
     "seed:brand": "node --env-file=.env.local scripts/seed-brand-voice.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
     "@hookform/resolvers": "^3.9.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",
