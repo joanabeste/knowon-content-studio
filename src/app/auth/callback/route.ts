@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const safeNext = next.startsWith("/") ? next : "/dashboard";
+  // Reject protocol-relative URLs like `//evil.com` and backslash
+  // variants — they pass a naive startsWith("/") check but navigate
+  // off-site.
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+      ? next
+      : "/dashboard";
   return NextResponse.redirect(new URL(safeNext, request.url));
 }

@@ -40,7 +40,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Safe-redirect: only accept relative paths, never full URLs.
-  const safeNext = next.startsWith("/") ? next : "/dashboard";
+  // Safe-redirect: only accept on-site absolute paths. Reject full
+  // URLs AND protocol-relative strings like `//evil.com` (which
+  // start with `/` but navigate off-site) and `/\\evil.com` variants.
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+      ? next
+      : "/dashboard";
   return NextResponse.redirect(new URL(safeNext, request.url));
 }

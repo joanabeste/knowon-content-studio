@@ -15,6 +15,7 @@ import {
 } from "@/lib/wordpress/client";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import { assertImageMatches } from "@/lib/security/image-magic";
+import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import { applyNoteToBody } from "@/lib/openai/apply-note";
 import {
   ALL_CHANNELS,
@@ -415,7 +416,15 @@ export async function generateBlogImage(
       imageBase64 = first.b64_json;
     } else if ("url" in first && typeof first.url === "string") {
       // Some API versions return URL instead of base64 — download it.
-      const res = await fetch(first.url);
+      // Guard against a manipulated / MITM'd response that might
+      // point at an internal metadata endpoint (SSRF).
+      const guard = assertPublicHttpUrl(first.url);
+      if (!guard.ok) {
+        return {
+          error: `Unerwartete Bild-URL blockiert: ${guard.error}`,
+        };
+      }
+      const res = await fetch(guard.url.toString());
       const buf = Buffer.from(await res.arrayBuffer());
       imageBase64 = buf.toString("base64");
     }

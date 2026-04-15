@@ -135,7 +135,10 @@ export async function toggleDocumentActive(id: string) {
 }
 
 export async function deleteDocument(id: string) {
-  const { supabase } = await requireUser();
+  const { supabase, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor." };
+  }
   const { error } = await supabase.from("context_documents").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/library/documents");

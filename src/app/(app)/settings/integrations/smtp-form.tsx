@@ -1,18 +1,29 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { saveSmtpConfig } from "./smtp-actions";
-import type { SmtpConfig } from "./smtp-types";
+import type { SmtpConfig, SmtpConfigInput } from "./smtp-types";
 
 export function SmtpForm({ initial }: { initial: SmtpConfig }) {
   const toast = useToast();
   const [pending, start] = useTransition();
-  const [state, setState] = useState<SmtpConfig>(initial);
+  const [passwordConfigured, setPasswordConfigured] = useState(
+    initial.password_set,
+  );
+  const [state, setState] = useState<SmtpConfigInput>({
+    host: initial.host,
+    port: initial.port,
+    username: initial.username,
+    password: "",
+    from_name: initial.from_name,
+    from_email: initial.from_email,
+    secure: initial.secure,
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,11 +34,19 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
         return;
       }
       toast.show("SMTP-Zugang gespeichert.", "success");
+      // If a new password was sent, the config is now "set".
+      if (state.password && state.password.trim() !== "") {
+        setPasswordConfigured(true);
+      }
+      // Clear the password field regardless — we never echo it back.
+      setState((prev) => ({ ...prev, password: "" }));
     });
   };
 
-  const set = <K extends keyof SmtpConfig>(k: K, v: SmtpConfig[K]) =>
-    setState((prev) => ({ ...prev, [k]: v }));
+  const set = <K extends keyof SmtpConfigInput>(
+    k: K,
+    v: SmtpConfigInput[K],
+  ) => setState((prev) => ({ ...prev, [k]: v }));
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -63,13 +82,26 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="smtp-pass">Passwort</Label>
+          <Label htmlFor="smtp-pass" className="flex items-center gap-2">
+            Passwort
+            {passwordConfigured && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-knowon-teal/10 px-1.5 py-0.5 text-[10px] font-semibold text-knowon-teal">
+                <CheckCircle2 className="h-3 w-3" />
+                konfiguriert
+              </span>
+            )}
+          </Label>
           <Input
             id="smtp-pass"
             type="password"
-            value={state.password ?? ""}
-            onChange={(e) => set("password", e.target.value || null)}
+            value={state.password}
+            onChange={(e) => set("password", e.target.value)}
             autoComplete="new-password"
+            placeholder={
+              passwordConfigured
+                ? "••••••••  (leer lassen zum Beibehalten)"
+                : "Passwort setzen"
+            }
           />
         </div>
         <div className="space-y-1.5">
@@ -105,9 +137,9 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
       <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
         <Mail className="mr-1 inline h-3.5 w-3.5" />
         E-Mail-Versand ist noch nicht aktiv. Die Zugangsdaten werden
-        gespeichert und kommen zum Einsatz, sobald die
-        Benachrichtigungs-Funktion freigeschaltet ist (z.B. Assignee-Änderung,
-        Review-Request, Freigabe).
+        verschlüsselt gespeichert und kommen zum Einsatz, sobald die
+        Benachrichtigungs-Funktion freigeschaltet ist (z.B.
+        Assignee-Änderung, Review-Request, Freigabe).
       </div>
 
       <Button type="submit" disabled={pending}>

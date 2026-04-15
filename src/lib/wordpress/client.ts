@@ -3,6 +3,23 @@
  * (no auth needed for reading published content).
  */
 
+import { assertPublicHttpUrl } from "@/lib/security/url-guard";
+
+/**
+ * Guard every outbound WordPress fetch against SSRF: even though the
+ * base URL comes from an admin-configured integration, a misconfigured
+ * or maliciously-edited value (`http://169.254.169.254`, `localhost`,
+ * internal TLD) would otherwise let the server probe internal
+ * metadata endpoints. Throws so the caller's try/catch surfaces a
+ * clear error instead of silently fetching.
+ */
+function assertWpBase(baseUrl: string): void {
+  const guard = assertPublicHttpUrl(baseUrl);
+  if (!guard.ok) {
+    throw new Error(`WordPress-Basis-URL blockiert: ${guard.error}`);
+  }
+}
+
 export interface WpPost {
   id: number;
   link: string;
@@ -31,6 +48,7 @@ export async function fetchWordpressPosts(
   baseUrl: string,
   limit = 20,
 ): Promise<WpPost[]> {
+  assertWpBase(baseUrl);
   const url = new URL("/wp-json/wp/v2/posts", baseUrl);
   url.searchParams.set("per_page", String(Math.min(limit, 100)));
   url.searchParams.set(
@@ -79,6 +97,7 @@ export async function uploadMedia(
   buffer: Buffer,
   contentType: "image/png" | "image/jpeg" = "image/png",
 ): Promise<WpMedia> {
+  assertWpBase(creds.baseUrl);
   const url = new URL("/wp-json/wp/v2/media", creds.baseUrl);
   const res = await fetch(url.toString(), {
     method: "POST",
@@ -199,6 +218,7 @@ export async function fetchWordpressCategoryNames(
   limit = 100,
 ): Promise<string[]> {
   try {
+    assertWpBase(creds.baseUrl);
     const url = new URL("/wp-json/wp/v2/categories", creds.baseUrl);
     url.searchParams.set("per_page", String(Math.min(limit, 100)));
     url.searchParams.set("orderby", "count");
@@ -226,6 +246,7 @@ async function sendPost(
   input: WpCreatePostInput,
   existingPostId?: number,
 ): Promise<WpPostResult> {
+  assertWpBase(creds.baseUrl);
   const tagIds = input.tagNames ? await ensureTags(creds, input.tagNames) : [];
   const categoryIds = input.categoryNames
     ? await ensureCategories(creds, input.categoryNames)
@@ -293,6 +314,7 @@ export async function verifyCredentials(
   creds: WpCredentials,
 ): Promise<{ ok: boolean; name?: string; error?: string }> {
   try {
+    assertWpBase(creds.baseUrl);
     const res = await fetch(
       new URL("/wp-json/wp/v2/users/me", creds.baseUrl).toString(),
       {
