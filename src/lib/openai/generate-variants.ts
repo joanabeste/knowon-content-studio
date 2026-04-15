@@ -143,7 +143,7 @@ export async function generateVariantsForChannels(
     } else if (channel === "eyefox" && parsed.eyefox) {
       body = parsed.eyefox.body;
     } else if (channel === "newsletter" && parsed.newsletter) {
-      body = parsed.newsletter.html_body;
+      body = parsed.newsletter.body;
       metadata = {
         subject: parsed.newsletter.subject,
         preheader: parsed.newsletter.preheader,

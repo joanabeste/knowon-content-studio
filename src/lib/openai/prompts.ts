@@ -226,7 +226,7 @@ const DEFAULT_CHANNEL_RULES: Record<Channel, string> = {
   eyefox:
     "Sachlich-informativ, B2B-Partnerseite für Augenarztpraxen, 200-500 Wörter.",
   newsletter:
-    "Betreff max. 55 Zeichen, Preheader ergänzt den Betreff, strukturierter HTML-Body mit h2, p, ul, a, strong und einem klaren CTA.",
+    "Betreff max. 55 Zeichen, Preheader ergänzt den Betreff. Body als reiner Plain-Text (KEIN HTML, KEIN Markdown): kurze Absätze getrennt durch Leerzeilen, Aufzählungen als '-' am Zeilenanfang, Call-to-Action als gut sichtbare Textzeile mit expliziter Link-URL. Ideal 200-400 Wörter.",
   blog: "SEO-optimiert. Titel mit Keyword, strukturiert mit h2/h3/h4, 600-1000 Wörter, Meta-Description 140-160 Zeichen, 3-6 Tags, 1-2 Kategorien. Wähle Kategorien bevorzugt aus der Liste vorhandener WordPress-Kategorien (falls übergeben); sonst schlage passende neue vor.",
 };
 

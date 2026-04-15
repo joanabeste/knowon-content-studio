@@ -22,7 +22,7 @@ const eyefoxSchema = z.object({
 const newsletterSchema = z.object({
   subject: z.string(),
   preheader: z.string(),
-  html_body: z.string(),
+  body: z.string(),
 });
 
 const blogSchema = z.object({
@@ -117,11 +117,11 @@ const channelJsonSchemas: Record<Channel, Record<string, unknown>> = {
   newsletter: {
     type: "object",
     additionalProperties: false,
-    required: ["subject", "preheader", "html_body"],
+    required: ["subject", "preheader", "body"],
     properties: {
       subject: { type: "string" },
       preheader: { type: "string" },
-      html_body: { type: "string" },
+      body: { type: "string" },
     },
   },
   blog: {
