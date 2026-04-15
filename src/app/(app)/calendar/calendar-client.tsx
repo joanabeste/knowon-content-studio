@@ -4,11 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
+import { PostChipPresentation } from "./components/post-chip";
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rows3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -69,6 +72,10 @@ export function CalendarClient({
   const [overrides, setOverrides] = useState<
     Record<string, { scheduled_at: string }>
   >({});
+
+  // The entry the user is currently holding — drives the DragOverlay
+  // floating preview so it's visually obvious what's in their hand.
+  const [activeEntry, setActiveEntry] = useState<CalendarEntry | null>(null);
 
   const entries = useMemo(() => {
     return serverEntries.map((e) => {
@@ -176,7 +183,18 @@ export function CalendarClient({
     }),
   );
 
+  const onDragStart = (e: DragStartEvent) => {
+    const entry = (e.active.data.current as { entry?: CalendarEntry } | undefined)
+      ?.entry;
+    if (entry) setActiveEntry(entry);
+  };
+
+  const onDragCancel = () => {
+    setActiveEntry(null);
+  };
+
   const onDragEnd = (e: DragEndEvent) => {
+    setActiveEntry(null);
     if (!canEdit) return;
     const { active, over } = e;
     if (!over) return;
@@ -239,7 +257,12 @@ export function CalendarClient({
   })();
 
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
+    >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -324,6 +347,14 @@ export function CalendarClient({
         )}
         {view === "list" && <DateList entries={sortedList} />}
       </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeEntry ? (
+          <div className="pointer-events-none w-60 max-w-[60vw] cursor-grabbing">
+            <PostChipPresentation entry={activeEntry} lifted />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
