@@ -45,6 +45,11 @@ import {
   updateVariantBody,
 } from "./actions";
 import { WpPublishForm } from "./wp-publish-form";
+import {
+  ApplyNoteButton,
+  RegenerateVariantButton,
+  VersionHistory,
+} from "./variant-extras";
 
 const STATUS_CONFIG: Record<
   VariantStatus,
@@ -384,9 +389,7 @@ export function VariantCard({
             ) : (
               <StatusBadge status={variant.status} />
             )}
-            <span className="text-xs text-muted-foreground">
-              v{variant.version}
-            </span>
+            <VersionHistory variant={variant} canRestore={canEdit} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={copy}>
@@ -408,6 +411,9 @@ export function VariantCard({
               >
                 <Edit3 className="h-4 w-4" /> Bearbeiten
               </Button>
+            )}
+            {canEdit && !editing && (
+              <RegenerateVariantButton variantId={variant.id} disabled={pending} />
             )}
             {canEdit && !editing && (
               <Button
@@ -894,18 +900,28 @@ function NotesThread({
                       {formatRelative(n.created_at)}
                     </span>
                   </div>
-                  {canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => onDelete(n.id)}
-                      disabled={pending}
-                      aria-label="Notiz löschen"
-                      title="Löschen"
-                      className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {(role === "admin" || role === "editor") && (
+                      <ApplyNoteButton
+                        variantId={variantId}
+                        noteId={n.id}
+                        appliedToVersion={n.applied_to_version}
+                        disabled={pending}
+                      />
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(n.id)}
+                        disabled={pending}
+                        aria-label="Notiz löschen"
+                        title="Löschen"
+                        className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap text-xs text-foreground/90">
                   {n.body}

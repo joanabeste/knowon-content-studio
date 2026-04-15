@@ -29,6 +29,8 @@ export interface GenerateVariantsInput {
   channels: Channel[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, "public", any>;
+  /** Optional extra instruction appended to the user prompt. */
+  extraPrompt?: string | null;
 }
 
 /**
@@ -40,7 +42,7 @@ export interface GenerateVariantsInput {
 export async function generateVariantsForChannels(
   input: GenerateVariantsInput,
 ): Promise<{ error: string } | { rows: VariantRow[] }> {
-  const { topic, brief, channels, supabase } = input;
+  const { topic, brief, channels, supabase, extraPrompt } = input;
 
   if (channels.length === 0) {
     return { error: "Mindestens einen Kanal auswählen." };
@@ -98,6 +100,7 @@ export async function generateVariantsForChannels(
     sourcePosts: (inspirations ?? []) as SourcePost[],
     contextDocuments: (docs ?? []) as ContextDocument[],
     existingWpCategories,
+    extraPrompt,
   };
 
   const systemPrompt = buildSystemPrompt(promptInput);

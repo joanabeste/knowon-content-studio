@@ -45,6 +45,7 @@ export default async function ProjectsPage() {
         content_variants ( status, channel, version )
       `,
     )
+    .eq("is_preview", false)
     .order("created_at", { ascending: false });
 
   const projects = (projectsRaw ?? []) as unknown as ProjectRow[];

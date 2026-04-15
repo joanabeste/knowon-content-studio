@@ -48,6 +48,7 @@ export default async function DashboardPage() {
     .select(
       "id, topic, requested_channels, created_at, content_variants(channel, status)",
     )
+    .eq("is_preview", false)
     .order("created_at", { ascending: false })
     .limit(5);
 

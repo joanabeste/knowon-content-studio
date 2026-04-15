@@ -16,6 +16,10 @@ import {
 import { ProjectDetailClient } from "./project-detail-client";
 import { DeleteProjectButton } from "./delete-project-button";
 import type { ImageWithUrl } from "./blog-image-panel";
+import {
+  ProjectActionsBar,
+  type ProfileOption,
+} from "./project-actions-bar";
 
 export default async function ProjectDetailPage({
   params,
@@ -98,6 +102,18 @@ export default async function ProjectDetailPage({
   const p = project as ContentProject;
   const canDelete = profile.role === "admin" || p.created_by === profile.id;
 
+  // Load profile list for assignee dropdowns. Small table — safe to
+  // load in full. If the currently-assigned profile isn't in the
+  // list (deleted/disabled), pull it separately so the pill still
+  // renders a name.
+  const { data: profilesData } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .order("full_name", { ascending: true });
+  const profiles = (profilesData ?? []) as ProfileOption[];
+  const assignedProfile =
+    p.assigned_to ? (profiles.find((pr) => pr.id === p.assigned_to) ?? null) : null;
+
   // Respect requested_channels; fall back to all if legacy project has none set
   const channels: Channel[] =
     p.requested_channels && p.requested_channels.length > 0
@@ -165,6 +181,17 @@ export default async function ProjectDetailPage({
           ))}
         </div>
       </div>
+
+      <ProjectActionsBar
+        project={p}
+        variants={Array.from(latestByChannel.values()).filter((v) =>
+          channels.includes(v.channel),
+        )}
+        profiles={profiles}
+        assignedProfile={assignedProfile}
+        currentUserId={user.id}
+        role={profile.role}
+      />
 
       <ProjectDetailClient
         projectId={id}

@@ -15,11 +15,14 @@ import {
 } from "@/lib/wordpress/client";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import { assertImageMatches } from "@/lib/security/image-magic";
+import { applyNoteToBody } from "@/lib/openai/apply-note";
 import {
   ALL_CHANNELS,
+  CHANNEL_LABELS,
   type Channel,
   type ContentVariant,
   type VariantStatus,
+  type VariantVersionReason,
 } from "@/lib/supabase/types";
 
 // =====================================================================
@@ -1149,4 +1152,506 @@ export async function addChannelsToProject(
 
   revalidatePath(`/projects/${projectId}`);
   return { ok: true, added: toGenerate };
+}
+
+// =====================================================================
+// Project-level workflow (assignment, review, approval)
+// =====================================================================
+
+/**
+ * Snapshot a variant's current body+metadata into variant_versions
+ * before mutating it. Keeps the full audit trail so regenerations
+ * and AI edits can be undone. Caller must pass the reason for the
+ * snapshot so the history UI can label each row.
+ */
+async function snapshotVariant(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  variantId: string,
+  userId: string,
+  reason: VariantVersionReason,
+): Promise<{ nextVersion: number } | { error: string }> {
+  const { data: variant, error: readErr } = await supabase
+    .from("content_variants")
+    .select("version, body, metadata")
+    .eq("id", variantId)
+    .single();
+  if (readErr || !variant) return { error: "Variante nicht gefunden." };
+
+  const { error: snapErr } = await supabase
+    .from("variant_versions")
+    .insert({
+      variant_id: variantId,
+      version: variant.version,
+      body: variant.body,
+      metadata: variant.metadata,
+      created_by: userId,
+      reason,
+    });
+  if (snapErr) return { error: snapErr.message };
+
+  return { nextVersion: (variant.version ?? 1) + 1 };
+}
+
+export async function assignProject(
+  projectId: string,
+  userId: string | null,
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen zuweisen." };
+  }
+
+  const { error } = await supabase
+    .from("content_projects")
+    .update({ assigned_to: userId })
+    .eq("id", projectId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: userId ? "project_assigned" : "project_unassigned",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: { assigned_to: userId },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function sendProjectToReview(
+  projectId: string,
+  options: { channels: Channel[]; assigneeId: string | null },
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen Projekte zur Review senden." };
+  }
+
+  if (options.channels.length === 0) {
+    return { error: "Mindestens einen Kanal auswählen." };
+  }
+
+  // Only flip variants that are currently in draft. We never downgrade
+  // an approved/published variant to in_review automatically — the
+  // UI hides those from the checklist so this is mostly a safety net.
+  const { data: variants, error: varErr } = await supabase
+    .from("content_variants")
+    .select("id, channel, status")
+    .eq("project_id", projectId)
+    .in("channel", options.channels)
+    .eq("status", "draft");
+  if (varErr) return { error: varErr.message };
+
+  const ids = (variants ?? []).map((v) => (v as { id: string }).id);
+  if (ids.length === 0) {
+    return { error: "Keine draft-Kanäle zum Umstellen gefunden." };
+  }
+
+  const { error: updErr } = await supabase
+    .from("content_variants")
+    .update({ status: "in_review", updated_by: user.id })
+    .in("id", ids);
+  if (updErr) return { error: updErr.message };
+
+  const { error: projErr } = await supabase
+    .from("content_projects")
+    .update({
+      status: "in_review",
+      review_requested_at: new Date().toISOString(),
+      assigned_to: options.assigneeId,
+    })
+    .eq("id", projectId);
+  if (projErr) return { error: projErr.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "project_sent_to_review",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: {
+      channels: options.channels,
+      variant_ids: ids,
+      assignee: options.assigneeId,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/review");
+  return { ok: true, count: ids.length };
+}
+
+export async function approveProject(
+  projectId: string,
+  options: { assigneeId: string | null },
+) {
+  const { supabase, user, profile } = await requireUser();
+
+  if (
+    profile.role !== "admin" &&
+    profile.role !== "reviewer" &&
+    profile.role !== "editor"
+  ) {
+    return { error: "Kein Zugriff." };
+  }
+
+  // Freigabe wirkt auf alle Varianten im Status in_review. Die anderen
+  // bleiben, wie sie sind — ein bereits veröffentlichter Kanal wird
+  // nicht zurück auf approved gestuft, ein noch-draft Kanal darf nicht
+  // ohne Review freigegeben werden.
+  const { data: variants, error: varErr } = await supabase
+    .from("content_variants")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("status", "in_review");
+  if (varErr) return { error: varErr.message };
+
+  const ids = (variants ?? []).map((v) => (v as { id: string }).id);
+  if (ids.length === 0) {
+    return { error: "Keine Kanäle in Review." };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updErr } = await supabase
+    .from("content_variants")
+    .update({
+      status: "approved",
+      reviewed_by: user.id,
+      reviewed_at: now,
+      updated_by: user.id,
+    })
+    .in("id", ids);
+  if (updErr) return { error: updErr.message };
+
+  // Project status mirrors the "furthest" lifecycle stage of its
+  // variants. If everything is approved or better, the project flips
+  // to approved. Still-draft channels hold the project in mixed state,
+  // which we represent by leaving project.status at in_review.
+  const { data: remaining } = await supabase
+    .from("content_variants")
+    .select("status")
+    .eq("project_id", projectId);
+  const statuses = (remaining ?? []).map(
+    (r) => (r as { status: VariantStatus }).status,
+  );
+  const projectStatus: VariantStatus = statuses.every(
+    (s) => s === "approved" || s === "published",
+  )
+    ? "approved"
+    : statuses.some((s) => s === "in_review")
+      ? "in_review"
+      : "draft";
+
+  const { error: projErr } = await supabase
+    .from("content_projects")
+    .update({
+      status: projectStatus,
+      assigned_to: options.assigneeId,
+    })
+    .eq("id", projectId);
+  if (projErr) return { error: projErr.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "project_approved",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: {
+      variant_ids: ids,
+      next_assignee: options.assigneeId,
+      project_status: projectStatus,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/review");
+  revalidatePath("/dashboard");
+  return { ok: true, count: ids.length };
+}
+
+// =====================================================================
+// Regenerate actions (global + per-channel)
+// =====================================================================
+
+export async function regenerateVariantsForProject(
+  projectId: string,
+  options: { channels: Channel[]; extraPrompt?: string | null },
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Reviewer dürfen nicht regenerieren." };
+  }
+  if (options.channels.length === 0) {
+    return { error: "Mindestens einen Kanal auswählen." };
+  }
+
+  const { data: project } = await supabase
+    .from("content_projects")
+    .select("topic, brief")
+    .eq("id", projectId)
+    .single();
+  if (!project) return { error: "Projekt nicht gefunden." };
+
+  const result = await generateVariantsForChannels({
+    topic: (project as { topic: string }).topic,
+    brief: (project as { brief: string | null }).brief,
+    channels: options.channels,
+    extraPrompt: options.extraPrompt ?? null,
+    supabase,
+  });
+  if ("error" in result) return { error: result.error };
+
+  // Map existing variants by channel so we know which rows to update
+  // vs. which channels got added fresh (if someone picked a channel
+  // that didn't exist yet — defensive; the UI only shows existing).
+  const { data: existing } = await supabase
+    .from("content_variants")
+    .select("id, channel, version, body, metadata")
+    .eq("project_id", projectId)
+    .in("channel", options.channels);
+  const byChannel = new Map<
+    Channel,
+    { id: string; version: number; body: string; metadata: unknown }
+  >();
+  for (const row of existing ?? []) {
+    const r = row as {
+      id: string;
+      channel: Channel;
+      version: number;
+      body: string;
+      metadata: unknown;
+    };
+    byChannel.set(r.channel, r);
+  }
+
+  const reason: VariantVersionReason =
+    options.channels.length > 1 ? "regenerate_all" : "regenerate_channel";
+
+  const updated: string[] = [];
+  for (const row of result.rows) {
+    const prev = byChannel.get(row.channel);
+    if (!prev) continue;
+
+    // Snapshot old body/metadata into variant_versions.
+    const snap = await snapshotVariant(supabase, prev.id, user.id, reason);
+    if ("error" in snap) {
+      console.error("[regenerate] snapshot failed", snap.error);
+      continue;
+    }
+
+    const { error: updErr } = await supabase
+      .from("content_variants")
+      .update({
+        body: row.body,
+        metadata: row.metadata,
+        version: snap.nextVersion,
+        updated_by: user.id,
+      })
+      .eq("id", prev.id);
+    if (updErr) {
+      console.error("[regenerate] update failed", updErr);
+      continue;
+    }
+    updated.push(prev.id);
+  }
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "project_regenerated",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: {
+      channels: options.channels,
+      updated_variant_ids: updated,
+      extra_prompt: options.extraPrompt ?? null,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true, count: updated.length };
+}
+
+export async function regenerateVariant(
+  variantId: string,
+  options: { extraPrompt?: string | null },
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Reviewer dürfen nicht regenerieren." };
+  }
+
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("id, channel, project_id")
+    .eq("id", variantId)
+    .single();
+  if (!variant) return { error: "Variante nicht gefunden." };
+
+  const v = variant as {
+    id: string;
+    channel: Channel;
+    project_id: string;
+  };
+
+  const res = await regenerateVariantsForProject(v.project_id, {
+    channels: [v.channel],
+    extraPrompt: options.extraPrompt ?? null,
+  });
+  return res;
+}
+
+// =====================================================================
+// Apply a note to the body via AI
+// =====================================================================
+
+export async function applyNoteToVariant(variantId: string, noteId: string) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Reviewer dürfen Notizen nicht direkt einarbeiten." };
+  }
+
+  const { data: variant } = await supabase
+    .from("content_variants")
+    .select("id, channel, body, project_id, version")
+    .eq("id", variantId)
+    .single();
+  if (!variant) return { error: "Variante nicht gefunden." };
+
+  const { data: note } = await supabase
+    .from("variant_notes")
+    .select("id, body, applied_to_version")
+    .eq("id", noteId)
+    .single();
+  if (!note) return { error: "Notiz nicht gefunden." };
+  const n = note as {
+    id: string;
+    body: string;
+    applied_to_version: number | null;
+  };
+  if (n.applied_to_version !== null) {
+    return { error: `Notiz wurde bereits in v${n.applied_to_version} eingearbeitet.` };
+  }
+
+  const v = variant as {
+    id: string;
+    channel: Channel;
+    body: string;
+    project_id: string;
+    version: number;
+  };
+
+  const out = await applyNoteToBody({
+    body: v.body,
+    note: n.body,
+    channelLabel: CHANNEL_LABELS[v.channel],
+  });
+  if ("error" in out) return { error: out.error };
+
+  const snap = await snapshotVariant(supabase, v.id, user.id, "apply_note");
+  if ("error" in snap) return { error: snap.error };
+
+  const { error: updErr } = await supabase
+    .from("content_variants")
+    .update({
+      body: out.body,
+      version: snap.nextVersion,
+      updated_by: user.id,
+    })
+    .eq("id", v.id);
+  if (updErr) return { error: updErr.message };
+
+  await supabase
+    .from("variant_notes")
+    .update({ applied_to_version: snap.nextVersion })
+    .eq("id", n.id);
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "note_applied",
+    target_type: "content_variant",
+    target_id: v.id,
+    payload: { note_id: n.id, applied_to_version: snap.nextVersion },
+  });
+
+  revalidatePath(`/projects/${v.project_id}`);
+  return { ok: true, version: snap.nextVersion };
+}
+
+// =====================================================================
+// Version history: list + restore
+// =====================================================================
+
+export async function listVariantVersions(variantId: string) {
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase
+    .from("variant_versions")
+    .select(
+      "id, version, body, metadata, reason, created_at, created_by, author:created_by(full_name)",
+    )
+    .eq("variant_id", variantId)
+    .order("version", { ascending: false });
+  if (error) return { error: error.message };
+  return { versions: data ?? [] };
+}
+
+export async function restoreVariantVersion(
+  variantId: string,
+  versionId: string,
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Reviewer dürfen nicht wiederherstellen." };
+  }
+
+  const { data: archived } = await supabase
+    .from("variant_versions")
+    .select("body, metadata")
+    .eq("id", versionId)
+    .eq("variant_id", variantId)
+    .single();
+  if (!archived) return { error: "Version nicht gefunden." };
+
+  // Snapshot the current body before overwriting, so the "current"
+  // state is still recoverable via a later restore.
+  const snap = await snapshotVariant(
+    supabase,
+    variantId,
+    user.id,
+    "manual_edit",
+  );
+  if ("error" in snap) return { error: snap.error };
+
+  const a = archived as { body: string; metadata: Record<string, unknown> | null };
+  const { error: updErr } = await supabase
+    .from("content_variants")
+    .update({
+      body: a.body,
+      metadata: a.metadata,
+      version: snap.nextVersion,
+      updated_by: user.id,
+    })
+    .eq("id", variantId);
+  if (updErr) return { error: updErr.message };
+
+  const { data: v } = await supabase
+    .from("content_variants")
+    .select("project_id")
+    .eq("id", variantId)
+    .single();
+  const projectId = (v as { project_id: string } | null)?.project_id;
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "variant_version_restored",
+    target_type: "content_variant",
+    target_id: variantId,
+    payload: { restored_from: versionId, new_version: snap.nextVersion },
+  });
+
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  return { ok: true, version: snap.nextVersion };
 }

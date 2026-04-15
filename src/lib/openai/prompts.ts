@@ -26,6 +26,13 @@ export interface BuildPromptInput {
    * tidy instead of letting every post spawn fresh categories.
    */
   existingWpCategories?: string[];
+  /**
+   * Free-text additional instruction appended to the user prompt.
+   * Used by the regenerate flow so the editor can nudge the model
+   * ("ohne Datum", "weniger Emojis", "kürzer fassen") without having
+   * to edit the base prompt.
+   */
+  extraPrompt?: string | null;
 }
 
 // Per-document truncation so one giant document doesn't eat the whole
@@ -224,10 +231,14 @@ const DEFAULT_CHANNEL_RULES: Record<Channel, string> = {
 };
 
 export function buildUserPrompt(input: BuildPromptInput): string {
-  const { topic, brief } = input;
+  const { topic, brief, extraPrompt } = input;
 
   const parts: string[] = [`# Thema\n${topic}`];
   if (brief) parts.push(`# Briefing\n${brief}`);
+
+  if (extraPrompt && extraPrompt.trim() !== "") {
+    parts.push(`# Zusätzliche Anweisung\n${extraPrompt.trim()}`);
+  }
 
   parts.push(
     "# Auftrag",

@@ -13,6 +13,13 @@ function parseSelectedChannels(formData: FormData): Channel[] {
   return Array.from(new Set(valid));
 }
 
+/**
+ * Kicks off generation and lands the user on the preview screen. The
+ * preview project is created with `is_preview=true` so it doesn't show
+ * up in the main project list until the user hits "Übernehmen". From
+ * the preview screen the user can regenerate everything with an extra
+ * prompt, or discard and start over.
+ */
 export async function generateContent(formData: FormData) {
   const { supabase, user, profile } = await requireUser();
 
@@ -36,7 +43,6 @@ export async function generateContent(formData: FormData) {
   });
   if ("error" in result) return { error: result.error };
 
-  // Persist project + variants
   const { data: project, error: projErr } = await supabase
     .from("content_projects")
     .insert({
@@ -45,6 +51,8 @@ export async function generateContent(formData: FormData) {
       status: "draft",
       requested_channels: selectedChannels,
       created_by: user.id,
+      assigned_to: user.id,
+      is_preview: true,
     })
     .select("id")
     .single();
@@ -75,11 +83,11 @@ export async function generateContent(formData: FormData) {
 
   await supabase.from("audit_log").insert({
     actor: user.id,
-    action: "generated",
+    action: "generated_preview",
     target_type: "content_project",
     target_id: project.id,
     payload: { topic, channels: selectedChannels },
   });
 
-  redirect(`/projects/${project.id}`);
+  redirect(`/generate/preview/${project.id}`);
 }

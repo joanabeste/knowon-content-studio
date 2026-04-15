@@ -111,6 +111,9 @@ export interface ContentProject {
   status: VariantStatus;
   requested_channels: Channel[];
   created_by: string | null;
+  assigned_to: string | null;
+  is_preview: boolean;
+  review_requested_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -149,6 +152,26 @@ export interface VariantNote {
   body: string;
   created_by: string | null;
   created_at: string;
+  applied_to_version: number | null;
+  author?: { full_name: string | null } | null;
+}
+
+export type VariantVersionReason =
+  | "regenerate_channel"
+  | "regenerate_all"
+  | "apply_note"
+  | "manual_edit";
+
+export interface VariantVersion {
+  id: string;
+  variant_id: string;
+  version: number;
+  body: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata: Record<string, any> | null;
+  created_by: string | null;
+  created_at: string;
+  reason: VariantVersionReason;
   author?: { full_name: string | null } | null;
 }
 

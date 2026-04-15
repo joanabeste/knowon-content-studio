@@ -20,6 +20,8 @@ import { AddFeedForm } from "@/app/(app)/library/feeds/add-feed-form";
 import { FeedRowActions } from "@/app/(app)/library/feeds/feed-row-actions";
 import { SyncAllButton } from "@/app/(app)/library/feeds/sync-all-button";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { loadSmtpConfig } from "./smtp-actions";
+import { SmtpForm } from "./smtp-form";
 
 export default async function IntegrationsPage() {
   await requireRole("admin");
@@ -63,6 +65,7 @@ export default async function IntegrationsPage() {
     .select("*")
     .order("created_at", { ascending: false });
   const feeds = (feedsData ?? []) as ContentFeed[];
+  const smtp = await loadSmtpConfig();
 
   return (
     <div className="space-y-6">
@@ -245,6 +248,24 @@ export default async function IntegrationsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* SMTP / E-Mail */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            E-Mail / SMTP
+            <Badge variant="muted">Vorbereitung</Badge>
+          </CardTitle>
+          <CardDescription>
+            Zugangsdaten für den ausgehenden E-Mail-Versand. Der tatsächliche
+            Versand (z.B. bei Assignee-Änderungen oder Review-Freigaben) wird
+            in einer späteren Version aktiviert.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SmtpForm initial={smtp} />
         </CardContent>
       </Card>
     </div>

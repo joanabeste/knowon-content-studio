@@ -68,11 +68,22 @@ export default async function CalendarPage({
   const startIso = rangeStart.toISOString();
   const endIso = rangeEnd.toISOString();
 
+  // Preview projects (is_preview=true) live in limbo — their variants
+  // shouldn't pollute the editorial calendar. Pull the IDs once and
+  // exclude them from the variant query below.
+  const { data: previewIds } = await supabase
+    .from("content_projects")
+    .select("id")
+    .eq("is_preview", true);
+  const previewProjectIds = (previewIds ?? []).map(
+    (r) => (r as { id: string }).id,
+  );
+
   // Fetch variants whose scheduled_at OR published_at OR created_at
   // falls inside the window. We can't express an OR across three
   // columns in a single PostgREST filter cleanly, so we use the
   // `.or()` helper.
-  const { data: variantsRaw, error } = await supabase
+  let variantsQuery = supabase
     .from("content_variants")
     .select(
       `
@@ -90,6 +101,14 @@ export default async function CalendarPage({
         `and(scheduled_at.is.null,published_at.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`,
     )
     .order("scheduled_at", { ascending: true, nullsFirst: false });
+  if (previewProjectIds.length > 0) {
+    variantsQuery = variantsQuery.not(
+      "project_id",
+      "in",
+      `(${previewProjectIds.join(",")})`,
+    );
+  }
+  const { data: variantsRaw, error } = await variantsQuery;
 
   if (error) {
     console.error("[calendar] fetch error", error);
@@ -136,6 +155,7 @@ export default async function CalendarPage({
     supabase
       .from("content_projects")
       .select("id, topic")
+      .eq("is_preview", false)
       .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
