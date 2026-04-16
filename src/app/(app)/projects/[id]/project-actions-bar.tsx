@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { fireBrandConfetti } from "@/lib/confetti";
 import {
   CHANNEL_LABELS,
   type Channel,
@@ -410,6 +411,9 @@ function ApprovePanel({
         return;
       }
       toast.show(`${res.count} Kanal/Kanäle freigegeben.`, "success");
+      // Celebrate — a small brand-colored confetti burst makes the
+      // moment feel like an accomplishment rather than a form-submit.
+      void fireBrandConfetti();
       onClose();
       router.refresh();
     });
