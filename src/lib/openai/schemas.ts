@@ -15,6 +15,15 @@ const instagramSchema = z.object({
   hashtags: z.array(z.string()),
 });
 
+// Iprendo News mirrors the Instagram shape: a caption-length body
+// plus hashtag-style tags. Kept as its own schema (rather than
+// reusing instagramSchema) so channel-specific prompts and voice
+// rules can diverge later without schema gymnastics.
+const iprendoNewsSchema = z.object({
+  caption: z.string(),
+  hashtags: z.array(z.string()),
+});
+
 const eyefoxSchema = z.object({
   body: z.string(),
 });
@@ -38,6 +47,7 @@ const blogSchema = z.object({
 export const channelZodSchemas = {
   linkedin: linkedinSchema,
   instagram: instagramSchema,
+  iprendo_news: iprendoNewsSchema,
   eyefox: eyefoxSchema,
   newsletter: newsletterSchema,
   blog: blogSchema,
@@ -45,6 +55,7 @@ export const channelZodSchemas = {
 
 export type LinkedInContent = z.infer<typeof linkedinSchema>;
 export type InstagramContent = z.infer<typeof instagramSchema>;
+export type IprendoNewsContent = z.infer<typeof iprendoNewsSchema>;
 export type EyefoxContent = z.infer<typeof eyefoxSchema>;
 export type NewsletterContent = z.infer<typeof newsletterSchema>;
 export type BlogContent = z.infer<typeof blogSchema>;
@@ -52,6 +63,7 @@ export type BlogContent = z.infer<typeof blogSchema>;
 export type GeneratedContent = {
   linkedin?: LinkedInContent;
   instagram?: InstagramContent;
+  iprendo_news?: IprendoNewsContent;
   eyefox?: EyefoxContent;
   newsletter?: NewsletterContent;
   blog?: BlogContent;
@@ -98,6 +110,15 @@ const channelJsonSchemas: Record<Channel, Record<string, unknown>> = {
     },
   },
   instagram: {
+    type: "object",
+    additionalProperties: false,
+    required: ["caption", "hashtags"],
+    properties: {
+      caption: { type: "string" },
+      hashtags: { type: "array", items: { type: "string" } },
+    },
+  },
+  iprendo_news: {
     type: "object",
     additionalProperties: false,
     required: ["caption", "hashtags"],

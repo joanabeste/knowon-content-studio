@@ -223,6 +223,8 @@ const DEFAULT_CHANNEL_RULES: Record<Channel, string> = {
     "Professionell, B2B, Hook in den ersten 2 Zeilen. 3-5 Hashtags, keine Emoji-Flut. Max. 3000 Zeichen.",
   instagram:
     "Visuell orientiert, persönlich, 1-3 Emojis. 10-15 Hashtags. Max. 2200 Zeichen.",
+  iprendo_news:
+    "Kurzer News-Beitrag im Tonfall der Instagram-Caption: persönlich, zugänglich, mit 1-3 Emojis und klarem Hook in Zeile 1. 8-12 thematische Hashtags ohne #-Zeichen. Max. 2200 Zeichen.",
   eyefox:
     "Sachlich-informativ, B2B-Partnerseite für Augenarztpraxen, 200-500 Wörter.",
   newsletter:

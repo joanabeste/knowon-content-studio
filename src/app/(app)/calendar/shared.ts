@@ -31,6 +31,7 @@ export const STATUS_ORDER: VariantStatus[] = [
 export const CHANNEL_ICONS: Record<Channel, string> = {
   linkedin: "in",
   instagram: "ig",
+  iprendo_news: "ip",
   eyefox: "ey",
   newsletter: "@",
   blog: "wp",

@@ -7,6 +7,7 @@ import {
   Mail,
   FileText,
   Newspaper,
+  Megaphone,
   Plus,
 } from "lucide-react";
 import {
@@ -33,6 +34,7 @@ const CHANNEL_ICONS: Record<
 > = {
   linkedin: Linkedin,
   instagram: Instagram,
+  iprendo_news: Megaphone,
   eyefox: Newspaper,
   newsletter: Mail,
   blog: FileText,

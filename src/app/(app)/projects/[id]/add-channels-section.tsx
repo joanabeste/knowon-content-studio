@@ -7,6 +7,7 @@ import {
   Mail,
   FileText,
   Newspaper,
+  Megaphone,
   Plus,
   Loader2,
   Check,
@@ -28,6 +29,7 @@ const CHANNEL_ICONS: Record<
 > = {
   linkedin: Linkedin,
   instagram: Instagram,
+  iprendo_news: Megaphone,
   eyefox: Newspaper,
   newsletter: Mail,
   blog: FileText,

@@ -140,6 +140,9 @@ export async function generateVariantsForChannels(
     } else if (channel === "instagram" && parsed.instagram) {
       body = parsed.instagram.caption;
       metadata = { hashtags: cleanHashtags(parsed.instagram.hashtags) };
+    } else if (channel === "iprendo_news" && parsed.iprendo_news) {
+      body = parsed.iprendo_news.caption;
+      metadata = { hashtags: cleanHashtags(parsed.iprendo_news.hashtags) };
     } else if (channel === "eyefox" && parsed.eyefox) {
       body = parsed.eyefox.body;
     } else if (channel === "newsletter" && parsed.newsletter) {

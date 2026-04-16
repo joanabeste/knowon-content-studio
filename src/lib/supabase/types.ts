@@ -2,12 +2,19 @@
 // In a real project you'd generate these via `supabase gen types typescript`.
 
 export type UserRole = "admin" | "editor" | "reviewer";
-export type Channel = "linkedin" | "instagram" | "eyefox" | "newsletter" | "blog";
+export type Channel =
+  | "linkedin"
+  | "instagram"
+  | "iprendo_news"
+  | "eyefox"
+  | "newsletter"
+  | "blog";
 export type VariantStatus = "draft" | "in_review" | "approved" | "published";
 
 export const ALL_CHANNELS: Channel[] = [
   "linkedin",
   "instagram",
+  "iprendo_news",
   "eyefox",
   "newsletter",
   "blog",
@@ -16,6 +23,7 @@ export const ALL_CHANNELS: Channel[] = [
 export const CHANNEL_LABELS: Record<Channel, string> = {
   linkedin: "LinkedIn",
   instagram: "Instagram",
+  iprendo_news: "Iprendo News",
   eyefox: "Eyefox",
   newsletter: "Newsletter",
   blog: "WordPress",
@@ -71,6 +79,7 @@ export type SourcePostSource =
   | "wordpress"
   | "linkedin"
   | "instagram"
+  | "iprendo_news"
   | "eyefox"
   | "newsletter"
   | "url_import"
@@ -82,6 +91,7 @@ export const SOURCE_LABELS: Record<SourcePostSource, string> = {
   wordpress: "WordPress",
   linkedin: "LinkedIn",
   instagram: "Instagram",
+  iprendo_news: "Iprendo News",
   eyefox: "Eyefox",
   newsletter: "Newsletter",
   url_import: "URL-Import",

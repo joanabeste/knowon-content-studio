@@ -7,6 +7,7 @@ import {
   Mail,
   FileText,
   Newspaper,
+  Megaphone,
   Check,
 } from "lucide-react";
 import { ALL_CHANNELS, CHANNEL_LABELS, type Channel } from "@/lib/supabase/types";
@@ -18,6 +19,10 @@ const CHANNEL_META: Record<
 > = {
   linkedin: { icon: Linkedin, description: "B2B-Post, Hook + Hashtags" },
   instagram: { icon: Instagram, description: "Caption + Hashtags" },
+  iprendo_news: {
+    icon: Megaphone,
+    description: "News-Beitrag im Instagram-Caption-Stil",
+  },
   eyefox: { icon: Newspaper, description: "Partnerseiten-Text, sachlich" },
   newsletter: { icon: Mail, description: "Betreff + HTML-Body" },
   blog: { icon: FileText, description: "SEO-Artikel mit Beitragsbild" },

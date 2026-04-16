@@ -104,10 +104,15 @@ export function VariantCard({
   const canApprove = role === "admin" || role === "reviewer";
   const canPublish = role === "admin" || role === "editor";
 
+  // Channels that share the "caption + hashtags" shape — treat them
+  // identically for char-limits, copy behaviour, and the hashtag UI.
+  const isCaptionChannel =
+    variant.channel === "instagram" || variant.channel === "iprendo_news";
+
   const charLimit =
     variant.channel === "linkedin"
       ? 3000
-      : variant.channel === "instagram"
+      : isCaptionChannel
         ? 2200
         : null;
   const overLimit = charLimit !== null && body.length > charLimit;
@@ -115,7 +120,7 @@ export function VariantCard({
 
   const copy = async () => {
     const parts: string[] = [body];
-    if (variant.channel === "linkedin" || variant.channel === "instagram") {
+    if (variant.channel === "linkedin" || isCaptionChannel) {
       const hashtags = cleanHashtags(metadata.hashtags as string[] | undefined);
       if (hashtags.length) {
         parts.push(hashtags.map((h) => `#${h}`).join(" "));
@@ -365,7 +370,7 @@ export function VariantCard({
           )}
         </div>
 
-        {(variant.channel === "linkedin" || variant.channel === "instagram") && (
+        {(variant.channel === "linkedin" || isCaptionChannel) && (
           <div className="space-y-2">
             <Label className="text-xs">Mögliche Hashtags</Label>
             {editing ? (
