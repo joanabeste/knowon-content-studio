@@ -87,8 +87,10 @@ export function BlogImagePanel({
           {
             id: res.imageId!,
             project_id: projectId,
+            variant_id: null,
             prompt: `Upload: ${file.name}`,
             storage_path: res.storagePath ?? "",
+            external_url: null,
             wp_media_id: null,
             is_featured: isFirst,
             size: null,
@@ -135,8 +137,10 @@ export function BlogImagePanel({
           {
             id: res.imageId!,
             project_id: projectId,
+            variant_id: null,
             prompt,
             storage_path: res.storagePath ?? "",
+            external_url: null,
             wp_media_id: null,
             is_featured: isFirst,
             size,

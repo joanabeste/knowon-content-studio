@@ -642,7 +642,9 @@ export async function setFeaturedImage(projectId: string, imageId: string) {
 
 export async function deleteImage(imageId: string) {
   const { supabase, profile } = await requireUser();
-  if (profile.role !== "admin") return { error: "Nur Admin." };
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen Bilder löschen." };
+  }
 
   const { data: img } = await supabase
     .from("images")
@@ -651,7 +653,13 @@ export async function deleteImage(imageId: string) {
     .single();
   if (!img) return { error: "Bild nicht gefunden." };
 
-  await supabase.storage.from("generated-images").remove([img.storage_path]);
+  // storage_path is nullable now (URL-only images live purely in the
+  // DB row). Only hit storage when there's actually a file there.
+  if (img.storage_path) {
+    await supabase.storage
+      .from("generated-images")
+      .remove([img.storage_path]);
+  }
   const { error } = await supabase.from("images").delete().eq("id", imageId);
   if (error) return { error: error.message };
 
@@ -1680,4 +1688,147 @@ export async function restoreVariantVersion(
 
   if (projectId) revalidatePath(`/projects/${projectId}`);
   return { ok: true, version: snap.nextVersion };
+}
+
+// =====================================================================
+// Variant-level images (upload / paste URL / delete)
+//
+// Non-blog channels get a simpler image panel — no AI generation, no
+// brand overlay. Authors can either upload a file or paste an image
+// URL (e.g. a Dropbox/S3/CDN link). Rows live in the same `images`
+// table but carry `variant_id` so they render per channel.
+// =====================================================================
+
+/**
+ * Get the parent project id for a variant — used to gate uploads and
+ * to revalidate the correct page.
+ */
+async function variantProjectId(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, "public", any>,
+  variantId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("content_variants")
+    .select("project_id")
+    .eq("id", variantId)
+    .single();
+  return (data as { project_id: string } | null)?.project_id ?? null;
+}
+
+export async function uploadVariantImage(
+  variantId: string,
+  formData: FormData,
+) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor können Bilder hochladen." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { error: "Keine Datei übergeben." };
+  }
+  if (!ALLOWED_MIME.has(file.type)) {
+    return { error: "Nur PNG, JPG oder WebP werden unterstützt." };
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return {
+      error: `Datei zu groß (${Math.round(file.size / 1024 / 1024)} MB, max 8 MB).`,
+    };
+  }
+
+  const projectId = await variantProjectId(supabase, variantId);
+  if (!projectId) return { error: "Variante nicht gefunden." };
+
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+
+  // Magic-byte check: browser-reported MIME is not trustworthy. No
+  // SVG allowed (active-content risk), consistent with the blog
+  // upload policy.
+  const magic = assertImageMatches(rawBuffer, file.type, [
+    "png",
+    "jpeg",
+    "webp",
+  ]);
+  if (!magic.ok) return { error: magic.error };
+
+  // Preserve the original format — no brand overlay for non-blog
+  // channels; authors want the raw asset they control.
+  const ext = file.type === "image/png"
+    ? "png"
+    : file.type === "image/webp"
+      ? "webp"
+      : "jpg";
+  const filename = `variant/${variantId}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from("generated-images")
+    .upload(filename, rawBuffer, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+  if (uploadErr) {
+    return { error: `Upload fehlgeschlagen: ${uploadErr.message}` };
+  }
+
+  const { error: insertErr } = await supabase.from("images").insert({
+    project_id: projectId,
+    variant_id: variantId,
+    prompt: `Upload: ${file.name}`,
+    storage_path: filename,
+    external_url: null,
+    is_featured: false,
+    created_by: user.id,
+  });
+
+  if (insertErr) {
+    await supabase.storage.from("generated-images").remove([filename]);
+    return { error: "Bild-Metadaten konnten nicht gespeichert werden." };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+export async function addVariantImageByUrl(variantId: string, url: string) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor können Bilder verlinken." };
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) return { error: "URL ist leer." };
+
+  // Syntactic check only — no server-side fetch, so no SSRF risk.
+  // The URL is embedded in an <img> tag on the client; the user's
+  // browser does the actual fetch when the card renders.
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { error: "Ungültige URL." };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { error: "Nur http(s)-URLs sind erlaubt." };
+  }
+
+  const projectId = await variantProjectId(supabase, variantId);
+  if (!projectId) return { error: "Variante nicht gefunden." };
+
+  const { error } = await supabase.from("images").insert({
+    project_id: projectId,
+    variant_id: variantId,
+    prompt: `URL: ${parsed.hostname}`,
+    storage_path: null,
+    external_url: parsed.toString(),
+    is_featured: false,
+    created_by: user.id,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
 }

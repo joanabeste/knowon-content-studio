@@ -92,12 +92,34 @@ export default async function ProjectDetailPage({
   const admin = getSupabaseAdmin();
   const imagesWithUrls: ImageWithUrl[] = await Promise.all(
     ((imagesData ?? []) as ImageRow[]).map(async (img) => {
+      // External-URL images don't live in storage; pass the URL
+      // straight through. storage-backed rows keep the signed-URL
+      // flow so they remain protected.
+      if (img.external_url) {
+        return { ...img, signedUrl: img.external_url };
+      }
+      if (!img.storage_path) {
+        return { ...img, signedUrl: null };
+      }
       const { data: signed } = await admin.storage
         .from("generated-images")
         .createSignedUrl(img.storage_path, 3600);
       return { ...img, signedUrl: signed?.signedUrl ?? null };
     }),
   );
+
+  // Partition images: project-level (blog hero pool) vs per-variant.
+  // Blog-image-panel still wants the project-level list; variants
+  // render their own list from the keyed map.
+  const projectImages = imagesWithUrls.filter((i) => i.variant_id === null);
+  const imagesByVariant: Record<string, ImageWithUrl[]> = {};
+  for (const img of imagesWithUrls) {
+    if (img.variant_id) {
+      const list = imagesByVariant[img.variant_id] ?? [];
+      list.push(img);
+      imagesByVariant[img.variant_id] = list;
+    }
+  }
 
   const p = project as ContentProject;
   const canDelete = profile.role === "admin" || p.created_by === profile.id;
@@ -200,7 +222,8 @@ export default async function ProjectDetailPage({
           channels.includes(v.channel),
         )}
         notesByVariant={Object.fromEntries(notesByVariant)}
-        images={imagesWithUrls}
+        images={projectImages}
+        imagesByVariant={imagesByVariant}
         role={profile.role}
         currentUserId={user.id}
       />

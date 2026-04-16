@@ -188,8 +188,13 @@ export interface VariantVersion {
 export interface ImageRow {
   id: string;
   project_id: string;
+  /** When set, the image belongs to a specific channel variant. */
+  variant_id: string | null;
   prompt: string;
-  storage_path: string;
+  /** Storage path in the `generated-images` bucket. Null for URL-only refs. */
+  storage_path: string | null;
+  /** Public URL (paste-from-web flow). Null for uploaded/generated images. */
+  external_url: string | null;
   wp_media_id: number | null;
   is_featured: boolean;
   size: string | null;

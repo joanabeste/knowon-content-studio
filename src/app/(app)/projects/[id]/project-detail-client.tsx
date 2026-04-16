@@ -25,6 +25,7 @@ import {
   type VariantNote,
 } from "@/lib/supabase/types";
 import { VariantCard } from "./variant-card";
+import { VariantImagesPanel } from "./variant-images-panel";
 import { BlogImagePanel, type ImageWithUrl } from "./blog-image-panel";
 import { AddChannelsSection } from "./add-channels-section";
 
@@ -48,6 +49,7 @@ export function ProjectDetailClient({
   variants,
   notesByVariant,
   images,
+  imagesByVariant,
   role,
   currentUserId,
 }: {
@@ -56,6 +58,7 @@ export function ProjectDetailClient({
   variants: ContentVariantWithPeople[];
   notesByVariant: Record<string, VariantNote[]>;
   images: ImageWithUrl[];
+  imagesByVariant: Record<string, ImageWithUrl[]>;
   role: UserRole;
   currentUserId: string;
 }) {
@@ -119,12 +122,18 @@ export function ProjectDetailClient({
           );
         return (
           <TabsContent key={ch} value={ch} className="space-y-4">
-            {ch === "blog" && (
+            {ch === "blog" ? (
               <BlogImagePanel
                 projectId={projectId}
                 blogTitle={(variant.metadata?.title as string) ?? null}
                 initialImages={images}
                 role={role}
+              />
+            ) : (
+              <VariantImagesPanel
+                variantId={variant.id}
+                images={imagesByVariant[variant.id] ?? []}
+                canEdit={role === "admin" || role === "editor"}
               />
             )}
             <VariantCard
