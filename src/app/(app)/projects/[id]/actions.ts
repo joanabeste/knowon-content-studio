@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { getOpenAI, OPENAI_IMAGE_MODEL } from "@/lib/openai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -943,9 +944,15 @@ export async function deleteVariantNote(noteId: string) {
     .eq("id", noteId);
   if (error) return { error: error.message };
 
-  // The join result comes back as an array in the typed client
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cv = (note as any).content_variants;
+  // PostgREST's typed client returns joined relations as either a
+  // single object or a one-element array depending on FK shape
+  // detection. Narrow explicitly so we don't need an `any`-cast.
+  type Joined =
+    | { project_id: string }
+    | { project_id: string }[]
+    | null
+    | undefined;
+  const cv = (note as { content_variants?: Joined }).content_variants;
   const projectId = Array.isArray(cv) ? cv[0]?.project_id : cv?.project_id;
   if (projectId) revalidatePath(`/projects/${projectId}`);
 
@@ -1039,8 +1046,15 @@ export async function deleteVariant(variantId: string) {
 
   if (!variant) return { error: "Variante nicht gefunden." };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const project = (variant as any).project as { created_by: string | null } | null;
+  // PostgREST returns the joined `project:` relation as a single
+  // object or a one-element array depending on detected cardinality.
+  type JoinedProject =
+    | { created_by: string | null }
+    | { created_by: string | null }[]
+    | null
+    | undefined;
+  const joined = (variant as { project?: JoinedProject }).project;
+  const project = Array.isArray(joined) ? joined[0] : joined;
   const isOwner = project?.created_by === user.id;
   if (profile.role !== "admin" && !isOwner) {
     return { error: "Nur Admin oder Ersteller darf Varianten löschen." };
@@ -1174,8 +1188,11 @@ export async function addChannelsToProject(
  * snapshot so the history UI can label each row.
  */
 async function snapshotVariant(
+  // Supabase's generated generics are deeply nested and vary per
+  // schema; we only touch two tables here, so the loosest shared
+  // shape is fine.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient<any, "public", any>,
   variantId: string,
   userId: string,
   reason: VariantVersionReason,

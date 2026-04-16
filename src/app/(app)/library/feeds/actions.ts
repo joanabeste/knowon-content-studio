@@ -6,6 +6,7 @@ import { requireRole, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { fetchAndParseFeed } from "@/lib/rss/parser";
 import { assertPublicHttpUrl } from "@/lib/security/url-guard";
+import { getFormString } from "@/lib/forms";
 import type { Channel, ContentFeed, SourcePostSource } from "@/lib/supabase/types";
 
 /**
@@ -28,11 +29,12 @@ const VALID_CHANNELS: Channel[] = [
 export async function addFeed(formData: FormData) {
   const { supabase, user } = await requireRole("admin");
 
-  const name = String(formData.get("name") || "").trim();
-  const url = String(formData.get("url") || "").trim();
-  const channel = String(formData.get("channel") || "") as Channel;
+  const name = getFormString(formData, "name");
+  const url = getFormString(formData, "url");
+  const channel = (getFormString(formData, "channel") ?? "") as Channel;
 
   if (!name) return { error: "Name ist erforderlich." };
+  if (!url) return { error: "URL ist erforderlich." };
   const guard = assertPublicHttpUrl(url);
   if (!guard.ok) return { error: guard.error };
   if (!VALID_CHANNELS.includes(channel))

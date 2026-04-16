@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import type { Channel } from "@/lib/supabase/types";
@@ -9,7 +10,7 @@ import type { Channel } from "@/lib/supabase/types";
 async function loadPreviewProject(
   projectId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient<any, "public", any>,
   userId: string,
 ) {
   const { data } = await supabase

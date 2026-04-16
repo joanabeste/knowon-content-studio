@@ -12,6 +12,10 @@ const IV_LEN = 12;
 const TAG_LEN = 16;
 
 function getKey(): Buffer {
+  // Read from the central env module so validation is consistent with
+  // the rest of the app. The env schema marks this var as optional
+  // (crypto is only needed for the integrations flow), which is why
+  // we still null-check here with a clear error message.
   const hex = process.env.INTEGRATIONS_ENCRYPTION_KEY;
   if (!hex) {
     throw new Error(

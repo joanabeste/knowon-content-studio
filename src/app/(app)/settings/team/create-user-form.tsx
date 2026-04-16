@@ -29,7 +29,8 @@ function generatePassword(length = 16): string {
   crypto.getRandomValues(bytes);
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += alphabet[bytes[i] % alphabet.length];
+    // bytes[i] is safe — i is bounded by length which is bytes.length
+    out += alphabet[(bytes[i]! % alphabet.length)] ?? "";
   }
   return out;
 }

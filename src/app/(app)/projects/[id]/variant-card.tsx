@@ -12,7 +12,6 @@ import {
   Trash2,
   MessageSquare,
   User as UserIcon,
-  CalendarClock,
 } from "lucide-react";
 import {
   Card,
@@ -40,7 +39,6 @@ import {
   deleteVariant,
   deleteVariantNote,
   listWpCategoryNames,
-  setVariantSchedule,
   setVariantStatus,
   updateVariantBody,
 } from "./actions";
@@ -50,193 +48,8 @@ import {
   RegenerateVariantButton,
   VersionHistory,
 } from "./variant-extras";
-
-const STATUS_CONFIG: Record<
-  VariantStatus,
-  { label: string; className: string }
-> = {
-  draft: {
-    label: "Entwurf",
-    className: "bg-muted text-muted-foreground",
-  },
-  in_review: {
-    // Warm amber — signals "waiting for attention" without being
-    // alarming like the brand pink (which reads as error/destructive).
-    label: "In Review",
-    className: "bg-amber-500 text-white",
-  },
-  approved: {
-    label: "Freigegeben",
-    className: "bg-knowon-teal text-white",
-  },
-  published: {
-    label: "Veröffentlicht",
-    className: "bg-knowon-purple text-white",
-  },
-};
-
-const STATUS_ORDER: VariantStatus[] = [
-  "draft",
-  "in_review",
-  "approved",
-  "published",
-];
-
-function StatusBadge({ status }: { status: VariantStatus }) {
-  const { label, className } = STATUS_CONFIG[status];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        className,
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-/**
- * Editable status pill. Uses a native <select> styled to look like a
- * pill badge. On change, calls setVariantStatus server action.
- */
-function StatusSelect({
-  variant,
-  onChanged,
-}: {
-  variant: ContentVariantWithPeople;
-  onChanged?: (status: VariantStatus) => void;
-}) {
-  const [pending, start] = useTransition();
-  const toast = useToast();
-
-  const onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value as VariantStatus;
-    if (next === variant.status) return;
-    start(async () => {
-      const res = await setVariantStatus(variant.id, next);
-      if ("error" in res && res.error) {
-        toast.show(res.error, "error");
-        return;
-      }
-      toast.show(`Status: ${STATUS_CONFIG[next].label}`, "success");
-      onChanged?.(next);
-    });
-  };
-
-  const { className } = STATUS_CONFIG[variant.status];
-
-  return (
-    <select
-      value={variant.status}
-      onChange={onChange}
-      disabled={pending}
-      aria-label="Status ändern"
-      className={cn(
-        "cursor-pointer appearance-none rounded-full border-0 py-0.5 pl-2.5 pr-6 text-xs font-semibold transition-opacity",
-        "bg-[url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2012%2012%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m3%204.5%203%203%203-3%22%2F%3E%3C%2Fsvg%3E')]",
-        "bg-[length:12px_12px] bg-no-repeat bg-[position:right_6px_center]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        pending && "opacity-60",
-        className,
-      )}
-    >
-      {STATUS_ORDER.map((s) => (
-        <option
-          key={s}
-          value={s}
-          className="bg-background text-foreground"
-        >
-          {STATUS_CONFIG[s].label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-/**
- * Inline scheduler: compact datetime-local input next to a "geplant
- * am" label. For editors/admins, saves on blur/change. For reviewers,
- * renders read-only text instead.
- */
-function SchedulePicker({
-  variant,
-  canEdit,
-}: {
-  variant: ContentVariantWithPeople;
-  canEdit: boolean;
-}) {
-  const [pending, start] = useTransition();
-  const toast = useToast();
-  const [value, setValue] = useState<string>(() =>
-    toLocalInputValue(variant.scheduled_at),
-  );
-
-  const save = (next: string) => {
-    start(async () => {
-      const res = await setVariantSchedule(variant.id, next || null);
-      if ("error" in res && res.error) {
-        toast.show(res.error, "error");
-        return;
-      }
-      toast.show(next ? "Termin gespeichert." : "Termin entfernt.", "success");
-    });
-  };
-
-  if (!canEdit) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        <CalendarClock className="h-3.5 w-3.5" />
-        <span>
-          {variant.scheduled_at
-            ? `Geplant: ${formatRelative(variant.scheduled_at)}`
-            : "Kein Termin geplant"}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs">
-      <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-      <Label className="text-xs text-muted-foreground">
-        Geplant für
-      </Label>
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={() => {
-          if (value !== toLocalInputValue(variant.scheduled_at)) {
-            save(value);
-          }
-        }}
-        disabled={pending}
-        className="rounded border bg-background px-2 py-0.5 text-xs"
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => {
-            setValue("");
-            save("");
-          }}
-          className="text-[11px] text-muted-foreground underline hover:text-foreground"
-        >
-          Termin löschen
-        </button>
-      )}
-    </div>
-  );
-}
-
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { StatusBadge, StatusSelect } from "./variant-status-select";
+import { SchedulePicker } from "./variant-schedule-picker";
 
 export function VariantCard({
   variant,

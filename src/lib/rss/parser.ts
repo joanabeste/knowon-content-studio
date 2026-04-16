@@ -51,7 +51,7 @@ export function parseFeedXml(xml: string): FeedItem[] {
 
   let match: RegExpExecArray | null;
   while ((match = blockRegex.exec(xml))) {
-    const inner = match[1];
+    const inner = match[1] ?? "";
     const item = parseItemBlock(inner, isAtom);
     if (item) items.push(item);
   }
@@ -120,13 +120,13 @@ function extractInner(xml: string, tagName: string): string | null {
   // Match both <tag>...</tag> and <tag attr="...">...</tag>
   const re = new RegExp(`<${escapeRegex(tagName)}\\b[^>]*>([\\s\\S]*?)<\\/${escapeRegex(tagName)}>`, "i");
   const m = xml.match(re);
-  if (!m) return null;
+  if (!m?.[1]) return null;
   return unwrapCdata(m[1]);
 }
 
 function unwrapCdata(s: string): string {
   const m = s.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
-  return m ? m[1] : s;
+  return m?.[1] ?? s;
 }
 
 function escapeRegex(s: string): string {

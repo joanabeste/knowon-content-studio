@@ -3,10 +3,11 @@
 import { redirect } from "next/navigation";
 import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import { requireUser } from "@/lib/auth";
+import { getFormString, getFormStrings } from "@/lib/forms";
 import { ALL_CHANNELS, type Channel } from "@/lib/supabase/types";
 
 function parseSelectedChannels(formData: FormData): Channel[] {
-  const raw = formData.getAll("channels").map(String) as Channel[];
+  const raw = getFormStrings(formData, "channels");
   const valid = raw.filter((c) =>
     (ALL_CHANNELS as string[]).includes(c),
   ) as Channel[];
@@ -27,8 +28,8 @@ export async function generateContent(formData: FormData) {
     return { error: "Reviewer können keinen Content erzeugen." };
   }
 
-  const topic = String(formData.get("topic") || "").trim();
-  const brief = String(formData.get("brief") || "").trim() || null;
+  const topic = getFormString(formData, "topic");
+  const brief = getFormString(formData, "brief");
   const selectedChannels = parseSelectedChannels(formData);
 
   if (!topic) return { error: "Thema fehlt." };

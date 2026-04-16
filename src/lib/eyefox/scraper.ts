@@ -55,7 +55,7 @@ export function extractItems(html: string, baseUrl: string): EyefoxItem[] {
   let match: RegExpExecArray | null;
 
   while ((match = blockRegex.exec(clean))) {
-    const inner = match[3];
+    const inner = match[3] ?? "";
     const title = extractHeading(inner);
     const body = stripTagsCollapse(inner);
     if (!title && body.length < 200) continue;
@@ -80,7 +80,7 @@ export function extractItems(html: string, baseUrl: string): EyefoxItem[] {
   let pm: RegExpExecArray | null;
   const seenFallback = new Set<string>();
   while ((pm = paraRegex.exec(clean))) {
-    const text = stripTagsCollapse(pm[1]);
+    const text = stripTagsCollapse(pm[1] ?? "");
     if (text.length < 150) continue;
     const key = text.slice(0, 150);
     if (seenFallback.has(key)) continue;
@@ -98,7 +98,7 @@ export function extractItems(html: string, baseUrl: string): EyefoxItem[] {
 
 function extractHeading(html: string): string | null {
   const m = html.match(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/i);
-  if (!m) return null;
+  if (!m?.[1]) return null;
   return stripTagsCollapse(m[1]) || null;
 }
 
@@ -117,9 +117,8 @@ function extractDate(html: string): string | null {
   const iso = html.match(/\b(\d{4}-\d{2}-\d{2})\b/);
   if (iso?.[1]) return new Date(iso[1]).toISOString();
   const de = html.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
-  if (de) {
-    const [, d, m, y] = de;
-    const iso = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  if (de && de[1] && de[2] && de[3]) {
+    const iso = `${de[3]}-${de[2].padStart(2, "0")}-${de[1].padStart(2, "0")}`;
     return new Date(iso).toISOString();
   }
   return null;
