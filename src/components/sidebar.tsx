@@ -11,12 +11,14 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronUp,
   Lightbulb,
   Users,
   Mic,
   Plug,
   LogOut,
   Menu,
+  UserCog,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -24,28 +26,45 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/supabase/types";
 
+type Badge = { count: number; tone: "pink" | "amber" } | null;
+
 type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  badgeKey?: "ideas" | "review";
 };
 
 type NavSection = {
-  title: string;
+  title?: string; // optional — top section has no label
   items: NavItem[];
   adminOnly?: boolean;
 };
 
+/**
+ * Nav tree. The top group has no title so the Dashboard sits as a
+ * standalone home anchor; "Content" gathers the full workflow from
+ * idea to review, then the library and admin groups follow.
+ */
 const sections: NavSection[] = [
   {
-    title: "Arbeitsbereich",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/ideas", label: "Ideen", icon: Lightbulb },
+    ],
+  },
+  {
+    title: "Content",
+    items: [
+      { href: "/ideas", label: "Ideen", icon: Lightbulb, badgeKey: "ideas" },
       { href: "/generate", label: "Erzeugen", icon: Sparkles },
       { href: "/projects", label: "Projekte", icon: FolderOpen },
       { href: "/calendar", label: "Kalender", icon: CalendarDays },
-      { href: "/review", label: "Review", icon: CheckCircle2 },
+      {
+        href: "/review",
+        label: "Review",
+        icon: CheckCircle2,
+        badgeKey: "review",
+      },
     ],
   },
   {
@@ -79,6 +98,25 @@ function getInitials(name: string | null, fallback = "?"): string {
   );
 }
 
+function BadgePill({ badge }: { badge: Badge }) {
+  if (!badge || badge.count <= 0) return null;
+  const toneClass =
+    badge.tone === "pink"
+      ? "bg-knowon-pink/15 text-knowon-pink"
+      : "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+  return (
+    <span
+      className={cn(
+        "ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+        toneClass,
+      )}
+      aria-label={`${badge.count} offen`}
+    >
+      {badge.count}
+    </span>
+  );
+}
+
 /**
  * The actual navigation + footer body. Rendered both inside the
  * desktop `<aside>` and inside the mobile drawer so the two views
@@ -89,18 +127,24 @@ function SidebarContent({
   role,
   fullName,
   email,
+  ideasOpen,
+  reviewOpen,
   onNavigate,
 }: {
   role: UserRole;
   fullName: string | null;
   email: string | null;
+  ideasOpen: number;
+  reviewOpen: number;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [pending, start] = React.useTransition();
+  const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
 
   const logout = () => {
+    setAccountMenuOpen(false);
     start(async () => {
       const supabase = getSupabaseBrowser();
       await supabase.auth.signOut();
@@ -115,30 +159,37 @@ function SidebarContent({
     pathname === "/settings/account" ||
     pathname.startsWith("/settings/account/");
 
+  const badgeFor = (key?: "ideas" | "review"): Badge => {
+    if (key === "ideas" && ideasOpen > 0)
+      return { count: ideasOpen, tone: "pink" };
+    if (key === "review" && reviewOpen > 0)
+      return { count: reviewOpen, tone: "amber" };
+    return null;
+  };
+
   return (
     <>
-      {/* Brand */}
-      <div className="border-b px-5 py-5">
+      {/* Brand — single line, no redundant "MARKETING" subtitle */}
+      <div className="border-b px-5 py-4">
         <Link href="/dashboard" className="block" onClick={onNavigate}>
           <div className="text-lg font-bold leading-tight text-knowon-purple">
             KnowOn <span className="text-knowon-teal">Studio</span>
-          </div>
-          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-            Marketing
           </div>
         </Link>
       </div>
 
       {/* Sections */}
-      <nav className="flex-1 overflow-y-auto px-3 py-5">
-        <div className="space-y-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="space-y-5">
           {sections
             .filter((s) => !s.adminOnly || role === "admin")
-            .map((section) => (
-              <div key={section.title}>
-                <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  {section.title}
-                </div>
+            .map((section, idx) => (
+              <div key={section.title ?? `top-${idx}`}>
+                {section.title && (
+                  <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {section.title}
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   {section.items.map((item) => {
                     const active =
@@ -167,7 +218,8 @@ function SidebarContent({
                           )}
                           strokeWidth={active ? 2.4 : 2}
                         />
-                        {item.label}
+                        <span className="flex-1">{item.label}</span>
+                        <BadgePill badge={badgeFor(item.badgeKey)} />
                       </Link>
                     );
                   })}
@@ -177,20 +229,24 @@ function SidebarContent({
         </div>
       </nav>
 
-      {/* User footer */}
-      <div className="border-t p-3">
-        <Link
-          href="/settings/account"
-          onClick={onNavigate}
+      {/* User footer — single compact row, popover for account+logout */}
+      <div className="relative border-t p-3">
+        <button
+          type="button"
+          onClick={() => setAccountMenuOpen((v) => !v)}
+          aria-expanded={accountMenuOpen}
+          aria-haspopup="menu"
           className={cn(
-            "flex items-center gap-3 rounded-md px-2 py-2 transition-colors",
-            accountActive ? "bg-primary/10" : "hover:bg-muted",
+            "flex w-full items-center gap-3 rounded-md px-2 py-2 transition-colors",
+            accountMenuOpen || accountActive
+              ? "bg-muted"
+              : "hover:bg-muted",
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-knowon-teal/15 text-sm font-semibold text-knowon-teal">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-knowon-teal/15 text-[11px] font-semibold text-knowon-teal">
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 text-left">
             <div
               className={cn(
                 "truncate text-sm font-medium",
@@ -199,19 +255,62 @@ function SidebarContent({
             >
               {displayName}
             </div>
-            <div className="truncate text-[11px] text-muted-foreground">
-              {email || <span className="capitalize">{role}</span>}
+            <div className="truncate text-[11px] capitalize text-muted-foreground">
+              {role}
             </div>
           </div>
-        </Link>
-        <button
-          onClick={logout}
-          disabled={pending}
-          className="mt-1 flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          {pending ? "Abmelden…" : "Abmelden"}
+          <ChevronUp
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+              !accountMenuOpen && "rotate-180",
+            )}
+          />
         </button>
+
+        {accountMenuOpen && (
+          <>
+            {/* Click-outside catcher */}
+            <button
+              type="button"
+              aria-label="Menü schließen"
+              onClick={() => setAccountMenuOpen(false)}
+              className="fixed inset-0 z-30"
+            />
+            <div
+              role="menu"
+              className="absolute inset-x-3 bottom-[calc(100%+0.25rem)] z-40 overflow-hidden rounded-md border bg-card p-1 shadow-lg"
+            >
+              <Link
+                href="/settings/account"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  onNavigate?.();
+                }}
+                className={cn(
+                  "flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors",
+                  accountActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-muted",
+                )}
+              >
+                <UserCog className="h-4 w-4" />
+                Account
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                disabled={pending}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" />
+                {pending ? "Abmelden…" : "Abmelden"}
+              </button>
+              <div className="mt-1 truncate border-t px-2 pt-1 text-[10px] text-muted-foreground">
+                {email}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
@@ -221,10 +320,14 @@ export function Sidebar({
   role,
   fullName,
   email,
+  ideasOpen,
+  reviewOpen,
 }: {
   role: UserRole;
   fullName: string | null;
   email: string | null;
+  ideasOpen: number;
+  reviewOpen: number;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -253,7 +356,13 @@ export function Sidebar({
           explicitly hidden below md so mobile main can take the
           full viewport width. */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card md:flex">
-        <SidebarContent role={role} fullName={fullName} email={email} />
+        <SidebarContent
+          role={role}
+          fullName={fullName}
+          email={email}
+          ideasOpen={ideasOpen}
+          reviewOpen={reviewOpen}
+        />
       </aside>
 
       {/* Mobile top bar — fixed at top of viewport, only shown
@@ -308,6 +417,8 @@ export function Sidebar({
           role={role}
           fullName={fullName}
           email={email}
+          ideasOpen={ideasOpen}
+          reviewOpen={reviewOpen}
           onNavigate={() => setMobileOpen(false)}
         />
       </aside>

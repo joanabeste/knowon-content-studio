@@ -8,7 +8,27 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile } = await requireUser();
+  const { user, profile, supabase } = await requireUser();
+
+  // Lightweight pending-counts for sidebar badges. Two small aggregate
+  // queries; cheap enough to run on every app page load. The queries
+  // are defensive against missing tables (early dev environments) by
+  // ignoring errors — the sidebar simply hides the badge when the
+  // count is 0 or null.
+  const [ideasCountRes, reviewCountRes] = await Promise.all([
+    supabase
+      .from("project_ideas")
+      .select("id", { count: "exact", head: true })
+      .is("archived_at", null)
+      .is("converted_to_project_id", null),
+    supabase
+      .from("content_variants")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "in_review"),
+  ]);
+
+  const ideasOpen = ideasCountRes.count ?? 0;
+  const reviewOpen = reviewCountRes.count ?? 0;
 
   return (
     <ToastProvider>
@@ -18,6 +38,8 @@ export default async function AppLayout({
           role={profile.role}
           fullName={profile.full_name}
           email={user.email ?? null}
+          ideasOpen={ideasOpen}
+          reviewOpen={reviewOpen}
         />
         <main className="min-w-0 flex-1 overflow-x-hidden bg-muted/30 pt-14 md:pt-0">
           {/*
