@@ -3,12 +3,11 @@ import {
   Layout,
   FolderOpen,
   CheckCircle2,
+  CalendarDays,
   BookOpen,
-  FileText,
   Mic,
   Send,
-  Users,
-  Lightbulb,
+  Settings as SettingsIcon,
   Brain,
   ShieldCheck,
   MessagesSquare,
@@ -18,10 +17,11 @@ import {
 /**
  * Content for the global help panel (see src/components/help-panel.tsx).
  *
- * Kept as code (not markdown/CMS) so it's versioned alongside the
- * features — whoever adds a feature also updates the matching help
- * entry in the same PR. Factored out of the component file so the
- * component stays focused on UI concerns.
+ * FAQ-style: every entry is a concrete question with a short, plain
+ * answer — written for marketing/editorial people, not developers.
+ * Kept in code (not markdown/CMS) so it's versioned alongside the
+ * features: whoever ships a feature updates the matching question
+ * in the same PR.
  *
  * Template literals (backticks) are used throughout so German
  * typographic quotes („…") inside the content can't accidentally
@@ -37,271 +37,306 @@ export type HelpSection = {
 
 export const HELP_SECTIONS: HelpSection[] = [
   {
-    id: "overview",
+    id: "start",
     icon: Layout,
-    title: "Überblick",
-    summary: "Wie die App aufgebaut ist und was wohin gehört.",
+    title: "Erste Schritte",
+    summary: "Worum es hier geht und wie du loslegst.",
     steps: [
-      `Links findest du die Navigation: Dashboard, Erzeugen, Projekte, Review + Bibliothek (Inspiration, Wissen) + Einstellungen (nur für Admins).`,
-      `Oben rechts dieses Hilfe-Icon — hier kannst du jederzeit nachschlagen.`,
-      `Der typische Ablauf ist: Thema + Briefing eingeben → Content wird für alle gewählten Kanäle generiert → im Projekt bearbeiten → in Review → freigeben → veröffentlichen.`,
-      `Jede freigegebene Variante fließt automatisch zurück in die Inspirations-Bibliothek als Featured-Beispiel — dadurch wird die nächste Generierung besser.`,
+      {
+        heading: "Was kann ich mit dieser App?",
+        body: `Du kannst Marketing-Texte für alle KnowOn-Kanäle (LinkedIn, Instagram, Iprendo News, Eyefox, Newsletter, Blog) auf einen Schlag erzeugen lassen, im Team bearbeiten, freigeben und planen.`,
+      },
+      {
+        heading: "Wo finde ich was?",
+        body: `Links in der Navigation: „Dashboard" (Übersicht), „Erzeugen" (neuen Content starten), „Projekte" (alle Inhalte), „Kalender" (zeitliche Planung), „Review" (was auf Freigabe wartet). „Bibliothek" hat Inspirationsquellen + Wissen. „Einstellungen" ist nur für Admins sichtbar.`,
+      },
+      {
+        heading: "Wie starte ich am besten?",
+        body: `Klick auf „Erzeugen" in der Sidebar, wähle die Kanäle, beschreibe dein Thema, klick auf „Generieren". Nach ca. 30 Sekunden siehst du eine Vorschau — übernimmst sie oder lässt neu generieren.`,
+      },
     ],
   },
   {
     id: "generate",
     icon: Sparkles,
     title: "Content erzeugen",
-    summary: "Von der Idee zum fertigen Entwurf in unter einer Minute.",
+    summary: "Wie du aus einer Idee fertige Texte für jeden Kanal bekommst.",
     steps: [
       {
-        heading: "1. Kanäle auswählen",
-        body: `Auf „Erzeugen" klicken. Oben wählst du die Kanäle aus, für die GPT Content erzeugen soll: LinkedIn, Instagram, Eyefox, Newsletter, WordPress. Mehrere gleichzeitig sind der Normalfall — alle werden aus demselben Briefing erzeugt und bleiben thematisch konsistent.`,
+        heading: "Wie generiere ich Content?",
+        body: `Auf „Erzeugen" klicken. Oben die Kanäle ankreuzen, für die du Inhalte brauchst. Dann das Thema in einem Satz nennen („Neuer Online-Kurs XY") und im Briefing ein paar Fakten ergänzen. Zum Schluss auf „Content erzeugen" klicken.`,
       },
       {
-        heading: "2. Thema + Briefing",
-        body: `Thema ist eine Zeile („Neuer eLearning-Kurs XY"). Briefing ist das Futter für GPT: Kernbotschaft, Zielgruppe, Fakten, Ton, CTA. Je konkreter, desto besser der Output. Der Placeholder im Briefing-Feld zeigt die erwartete Struktur.`,
+        heading: "Was soll ich ins Briefing schreiben?",
+        body: `Kurz und konkret: Kernbotschaft in einem Satz, 3–5 wichtige Fakten, wer die Zielgruppe ist, was der Text bewirken soll (Klick, Anmeldung, Aufmerksamkeit). Je klarer das Briefing, desto besser die Texte.`,
       },
       {
-        heading: "3. Generieren",
-        body: `Klick auf „Content für X Kanäle erzeugen". Die Generierung dauert 20–40 Sekunden. Bleib in dem Tab, nicht zurücknavigieren. Danach landest du automatisch im Projekt-Detail.`,
+        heading: `Was passiert nach dem Klick auf „Generieren"?`,
+        body: `Die KI braucht ca. 20–40 Sekunden. Du landest dann auf einer Vorschau-Seite mit allen Texten. Dort hast du drei Möglichkeiten: „Übernehmen" (als Projekt speichern), „Alle neu generieren" (nochmal probieren, optional mit Zusatz-Anweisung) oder „Verwerfen" (alles löschen).`,
+      },
+      {
+        heading: "Warum dauert das so lange?",
+        body: `Die KI erzeugt alle Kanäle auf einmal — LinkedIn-Post, Instagram-Caption, Blog-Artikel usw. Das ist mehr Text, als es auf den ersten Blick aussieht. Bleib im Tab, die Generierung läuft weiter.`,
       },
     ],
   },
   {
-    id: "projects",
+    id: "edit",
     icon: FolderOpen,
-    title: "Projekte bearbeiten",
-    summary: "Varianten editieren, Hashtags pflegen, Notizen hinterlassen.",
+    title: "Inhalte bearbeiten",
+    summary: "Texte verfeinern, neu generieren, Versionen zurückholen.",
     steps: [
-      `Jedes Projekt enthält pro Kanal eine Variant-Card. Klick auf den Kanal-Tab, um zwischen den Varianten zu wechseln.`,
-      `Der Button „Bearbeiten" macht Text + Hashtags / Tags / Kategorien editierbar. „Speichern" persistiert, „Abbrechen" verwirft.`,
-      `Bei Blog-Varianten kannst du Titel, Slug, Meta-Description, Tags und Kategorien direkt im UI pflegen. Vorhandene WordPress-Kategorien werden unterhalb des Input-Felds als Quick-Pick-Chips angezeigt.`,
-      `„Mögliche Hashtags" sind GPT-Vorschläge — komma-getrennt editierbar.`,
-      `„Interne Notizen" unten auf jeder Card sind fürs Team gedacht: schnelle Kommentare wie „Abklären mit Dr. Müller". Jeder Team-User kann lesen und schreiben, nur der Autor der Notiz (oder ein Admin) kann sie löschen.`,
+      {
+        heading: "Wo finde ich meinen Content wieder?",
+        body: `Unter „Projekte" in der Sidebar. Jedes Projekt bündelt alle Kanal-Varianten eines Themas. Klick auf ein Projekt, dann zwischen den Kanal-Tabs oben umschalten.`,
+      },
+      {
+        heading: "Wie bearbeite ich einen Text?",
+        body: `Auf der Projekt-Seite bei jeder Kanal-Karte oben rechts „Bearbeiten" klicken. Text und Hashtags werden editierbar. „Speichern" sichert die Änderung, „Abbrechen" verwirft sie.`,
+      },
+      {
+        heading: "Wie lasse ich einen Text neu generieren?",
+        body: `Auf einer Kanal-Karte den „Neu generieren"-Button oben nutzen. Optional kannst du der KI einen Zusatz-Wunsch mitgeben („kürzer", „ohne Emojis", „mehr Fokus auf Preis"). Der alte Text bleibt in der Historie abrufbar.`,
+      },
+      {
+        heading: "Kann ich alle Kanäle auf einmal neu generieren?",
+        body: `Ja. Oben in der Projekt-Leiste auf „Alle neu generieren" klicken. Du kannst auswählen, welche Kanäle mitsollen, und eine Zusatz-Anweisung mitgeben — z.B. „Datum überall weglassen", wenn sich die KI irgendwo vertan hat.`,
+      },
+      {
+        heading: "Kann ich eine alte Version wiederherstellen?",
+        body: `Ja. In jeder Kanal-Karte steht oben „v3 ↓" — ein Klick öffnet die Historie aller bisherigen Versionen. Jede lässt sich mit einem Klick zurückholen. Der aktuelle Text wird dabei automatisch als neue Version archiviert.`,
+      },
+      {
+        heading: "Wie nutze ich den Zauberstab bei Notizen?",
+        body: `Wenn jemand im Team eine Notiz hinterlässt („CTA fehlt" o.ä.), siehst du rechts daneben ein kleines Zauberstab-Symbol. Ein Klick arbeitet die Notiz per KI direkt in den Text ein. Der alte Text wird vorher archiviert.`,
+      },
     ],
   },
   {
     id: "review",
     icon: CheckCircle2,
-    title: "Review-Workflow",
-    summary: "Wie Varianten den Weg von Entwurf zur Veröffentlichung gehen.",
+    title: "Review & Freigabe",
+    summary: "Wie Inhalte vom Entwurf zum veröffentlichten Post werden.",
     steps: [
-      `Neue Varianten starten als „Entwurf". Der Status wird oben in der Card als farbiges Pill angezeigt: grau = Entwurf, amber = In Review, teal = Freigegeben, lila = Veröffentlicht.`,
-      `„Zur Review" schickt die Variante an die Review-Queue (Sidebar → Review). Reviewer können dort freigeben oder zurück in den Entwurf schicken.`,
-      `Admin und Editor können den Status über das Dropdown auch direkt auf jeden beliebigen Wert setzen — z.B. um einen veröffentlichten Post wieder in Entwurf zurückzuholen. Reviewer können alles außer „Veröffentlicht" setzen.`,
-      `Sobald eine Variante auf „Freigegeben" steht, wird sie automatisch als Featured-Beispiel in die Inspirations-Bibliothek geschrieben. Sie beeinflusst damit alle zukünftigen Generierungen im selben Kanal — das System lernt deinen redaktionellen Stil.`,
+      {
+        heading: "Wie schicke ich etwas zur Review?",
+        body: `Auf der Projekt-Seite oben auf „In Review schicken" klicken. Im Fenster kannst du Kanäle abwählen, die du noch nicht fertig hast. Wähle optional eine Person als Reviewer — die bekommt den Eintrag dann prominent auf ihrem Dashboard.`,
+      },
+      {
+        heading: "Wie erkenne ich, dass ich etwas prüfen soll?",
+        body: `Wenn dir jemand Inhalte zur Review zugewiesen hat, siehst du oben auf dem Dashboard eine amber-farbige Karte „Auf dich wartet eine Freigabe". Ein Klick bringt dich direkt zum Projekt.`,
+      },
+      {
+        heading: "Wie gebe ich Inhalte frei?",
+        body: `Zwei Wege: (1) Kanal-weise über das Status-Dropdown auf jeder Kanal-Karte — direkt auf „Freigegeben" stellen. (2) Projekt-weise über den Button „Projekt freigeben" oben — gibt alle Kanäle frei, die gerade in Review stehen.`,
+      },
+      {
+        heading: "Wie schicke ich etwas zurück in den Entwurf?",
+        body: `Auf der Kanal-Karte das Status-Dropdown öffnen und auf „Entwurf" stellen. Ein Kommentar in den Notizen hilft dem Team zu verstehen, was noch fehlt.`,
+      },
+      {
+        heading: "Wie markiere ich einen Post als veröffentlicht?",
+        body: `Sobald der Post wirklich draußen ist: Status auf „Veröffentlicht" setzen. Das System füllt automatisch das Veröffentlichungsdatum aus und der Post erscheint im Kalender als erledigt.`,
+      },
     ],
   },
   {
-    id: "library",
-    icon: BookOpen,
-    title: "Inspirations-Bibliothek",
-    summary: "Alte KnowOn-Posts als Stil-Referenz für GPT.",
+    id: "calendar",
+    icon: CalendarDays,
+    title: "Kalender & Planung",
+    summary: "Zeitliche Planung aller Posts.",
     steps: [
-      `Die Bibliothek (Sidebar → Inspiration) enthält alte Posts, die GPT als Stil-Beispiele bekommt. Pro Generierung werden die 4 relevantesten pro Kanal ausgewählt, sortiert nach Featured-Status und Datum.`,
-      `Quellen hinzufügen: oben auf „Quellen hinzufügen" klicken, dann wählen zwischen „Sync" (automatisch von WordPress oder Eyefox), „URL-Import" (öffentliche LinkedIn-/Instagram-/Blog-URLs einfügen) oder „Manuell" (eigenen Text einfügen).`,
-      `„Featured" (Stern-Icon) markiert Posts, die GPT bevorzugt als Beispiel nimmt. Nutze das für deine besten Referenz-Texte.`,
-      `Bulk-Actions: mehrere Posts auswählen und in einem Rutsch featured setzen oder löschen.`,
-      `Der Cron-Job synchronisiert die Feeds einmal täglich automatisch — manuell synchronisieren kannst du aber jederzeit über „Sync" in den Integrationen.`,
-    ],
-  },
-  {
-    id: "knowledge",
-    icon: FileText,
-    title: "Wissen (Kontext-Dokumente)",
-    summary: "Zusatz-Wissen, das in jeden Prompt einfließt.",
-    steps: [
-      `Sidebar → Wissen. Hier kannst du PDFs, Präsentationen oder Textdokumente hochladen, die GPT bei jeder Generierung als Kontext mitbekommt.`,
-      `Im Gegensatz zur Bibliothek sind das keine Stil-Referenzen, sondern Fakten-Quellen: Studien, interne Briefings, Produktdetails, Vorträge.`,
-      `Nur Dokumente mit Schalter „Aktiv" werden in den Prompt gesetzt. Lade ruhig mehr hoch als du aktiv nutzt — du kannst je nach Projekt einzelne aktivieren und deaktivieren.`,
-    ],
-  },
-  {
-    id: "brand",
-    icon: Mic,
-    title: "Brand Voice konfigurieren",
-    summary: "Wie du den KnowOn-Ton hart an GPT übergibst.",
-    steps: [
-      `Einstellungen → Brand Voice. Der „Allgemein"-Tab gilt für alle Kanäle, die Kanal-Tabs überschreiben oder ergänzen einzelne Aspekte.`,
-      `„Tonfall-Beispiele": Ein Freitext-Feld, in das du 3–8 perfekte Beispielsätze kopierst („So klingen wir wirklich"). Dieser Block wird in jeden Generierungs-Prompt hart verankert und rotiert nicht — der stärkste Hebel für konsistenten Ton.`,
-      `„Do's" und „Don'ts": stichpunktartig, ein Eintrag pro Zeile. Fließen direkt in den System-Prompt.`,
-      `Brand-Logo: Das Logo, das unten rechts in jedes generierte oder hochgeladene Beitragsbild eingeblendet wird. PNG mit Transparenz ist ideal, max 2 MB. 1:1-Einblendung ohne Umfärbung.`,
+      {
+        heading: "Wie plane ich einen Post ein?",
+        body: `Auf der Kanal-Karte gibt es ein Feld „Geplant für". Datum und Uhrzeit eintragen — der Post erscheint automatisch im Kalender am gewählten Tag.`,
+      },
+      {
+        heading: "Wie verschiebe ich einen Post auf einen anderen Tag?",
+        body: `Im Kalender (Sidebar → „Kalender") kannst du Posts per Drag-and-Drop auf einen anderen Tag ziehen. Das Datum wird automatisch angepasst.`,
+      },
+      {
+        heading: "Wie filtere ich den Kalender?",
+        body: `Oben im Kalender: Status (Entwurf, In Review, Freigegeben, Veröffentlicht), Kanal, Projekt oder zuständige Person. Mehrere Filter gleichzeitig sind möglich. „Alle zurücksetzen" leert die Auswahl.`,
+      },
+      {
+        heading: "Was bedeuten die Ansichten Monat/Woche/Liste?",
+        body: `Monat zeigt eine klassische Kalenderansicht, Woche zeigt nur 7 Tage mit mehr Platz pro Post, Liste sortiert alle Posts chronologisch untereinander — gut für mobile Nutzung.`,
+      },
     ],
   },
   {
     id: "publish",
     icon: Send,
-    title: "In WordPress veröffentlichen",
-    summary: "Blog-Variante direkt nach WordPress pushen.",
+    title: "Veröffentlichen",
+    summary: "Blog-Artikel nach WordPress senden, Beitragsbilder erstellen.",
     steps: [
-      `Voraussetzung: In Einstellungen → Integrationen müssen die WordPress-Zugangsdaten (Base-URL + Application Password) hinterlegt und verbunden sein.`,
-      `In einer Blog-Variante, die auf „Freigegeben" oder „Veröffentlicht" steht, erscheint unten das „Nach WordPress senden"-Panel.`,
-      `Drei Modi: „Entwurf" (WP legt einen Draft an, den du manuell live setzt), „Geplant" (WP veröffentlicht zum angegebenen Datum automatisch) und „Sofort live" (sofort publiziert).`,
-      `Titel, Slug, Meta-Description, Tags und Kategorien werden aus der Variant-Metadata übernommen. Das Beitragsbild kommt aus dem ersten is_featured-Bild im Projekt — oder, wenn keins gesetzt ist, aus dem zuletzt generierten.`,
-      `Bestehende WP-Posts werden aktualisiert statt dupliziert, wenn du die Variante erneut sendest — die WP-Post-ID wird in der Metadata gespeichert.`,
+      {
+        heading: "Wie veröffentliche ich einen Blog in WordPress?",
+        body: `Voraussetzung: WordPress muss unter „Einstellungen → Integrationen" verbunden sein. Wenn eine Blog-Variante freigegeben ist, erscheint unten auf der Karte „Nach WordPress senden". Du wählst zwischen „Entwurf" (Draft in WP), „Geplant" (zu Datum X live) oder „Sofort live". Titel, Bild, Tags und Kategorien werden automatisch übernommen.`,
+      },
+      {
+        heading: "Wie erstelle ich ein Beitragsbild?",
+        body: `Auf dem Blog-Tab eines Projekts oben auf „Bild erzeugen" klicken und einen Prompt eingeben — die KI erstellt ein Foto und legt automatisch das KnowOn-Logo plus Farbverlauf drüber. Alternativ eigenes Bild hochladen (PNG/JPG/WebP bis 8 MB), es bekommt den Overlay ebenfalls.`,
+      },
+      {
+        heading: "Warum dauert die Bildgenerierung so lange?",
+        body: `Die KI-Bilder laufen auf höchster Qualität und brauchen 30–60 Sekunden. Danach noch ein paar Sekunden fürs Logo- und Farbverlauf-Overlay. Einfach warten — das Ergebnis ist eine echte Foto-Qualität wert.`,
+      },
+      {
+        heading: "Wie wechsle ich das Beitragsbild?",
+        body: `Wenn mehrere Bilder im Projekt sind: beim gewünschten Bild auf das Stern-Symbol klicken. Das markiert es als Beitragsbild — beim WordPress-Publish wird dieses Bild mitgesendet.`,
+      },
     ],
   },
   {
-    id: "images",
-    icon: Layout,
-    title: "Beitragsbilder",
-    summary: "Blog-Hero-Bilder mit KI erzeugen oder hochladen.",
+    id: "library",
+    icon: BookOpen,
+    title: "Bibliothek & Wissen",
+    summary: "Inspiration und Fakten für die KI hinterlegen.",
     steps: [
-      `Auf dem Blog-Tab einer Variante öffnet sich oben das Bilder-Panel.`,
-      `„Mit KI generieren": Prompt eingeben, gpt-image-1 erzeugt ein fotorealistisches Bild, sharp legt den KnowOn-Gradient-Overlay + Logo automatisch drüber.`,
-      `„Eigenes Bild hochladen": PNG, JPG oder WebP bis 8 MB. Bekommt auch den Overlay + Logo verpasst, damit alles konsistent aussieht.`,
-      `Das erste hochgeladene oder generierte Bild pro Projekt wird automatisch als „Beitragsbild" markiert. Über den Stern-Button kannst du jederzeit ein anderes als Featured setzen — das ist das Bild, das beim WordPress-Publish mitgesendet wird.`,
+      {
+        heading: "Was ist die Inspirations-Bibliothek?",
+        body: `Sidebar → „Inspiration". Hier liegen alte KnowOn-Posts, die der KI als Stil-Vorbild dienen. Vor jeder Generierung sucht das System automatisch passende Beispiele raus — je mehr gute Posts hier liegen, desto besser trifft die KI den Ton.`,
+      },
+      {
+        heading: "Wie füge ich Inspirationsquellen hinzu?",
+        body: `In der Bibliothek oben auf „Quellen hinzufügen". Drei Wege: „Sync" (automatisch von verbundenen Seiten wie WordPress), „URL-Import" (eine LinkedIn- oder Blog-URL einfügen) oder „Manuell" (eigenen Text eintragen). Posts, die du als besonders stark findest, mit dem Stern als „Favorit" markieren — die KI nimmt sie dann bevorzugt.`,
+      },
+      {
+        heading: "Was sind die Wissens-Dokumente?",
+        body: `Sidebar → „Wissen". Hier lädst du PDFs oder Texte hoch, die Fakten enthalten — Produktinfos, Studien, interne Briefings. Die KI kriegt diese Dokumente bei jeder Generierung als Hintergrund mit und kann korrekte Details einbauen.`,
+      },
+      {
+        heading: "Was ist der Unterschied zwischen Inspiration und Wissen?",
+        body: `Inspiration = „So klingen wir" (Stil). Wissen = „Das sind die Fakten" (Inhalt). Beides zusammen macht die Texte echt gut: richtiger Ton + richtige Informationen.`,
+      },
+    ],
+  },
+  {
+    id: "brand",
+    icon: Mic,
+    title: "Brand Voice",
+    summary: "Der Ton, den die KI bei jeder Generierung trifft.",
+    steps: [
+      {
+        heading: "Was ist Brand Voice?",
+        body: `Die Anleitung, wie wir klingen. Unter „Einstellungen → Brand Voice" trägst du ein, welchen Ton wir haben, was wir nicht sagen, wen wir ansprechen. Diese Anleitung geht bei JEDER Generierung mit an die KI.`,
+      },
+      {
+        heading: "Wie passe ich den Ton an?",
+        body: `Im Reiter „Allgemein" das Feld „Tonfall-Beispiele" ausfüllen: 3–8 perfekte Beispielsätze, die genau wie KnowOn klingen. Das ist der stärkste Hebel. Zusätzlich Do's (was soll drin sein) und Don'ts (was vermeiden) als Stichpunkte listen.`,
+      },
+      {
+        heading: "Kann ich pro Kanal einen anderen Ton festlegen?",
+        body: `Ja. Neben „Allgemein" gibt es Tabs für jeden Kanal — dort kannst du Länge, CTA-Stil, kanal-spezifische Do's ergänzen. Leere Felder nutzen einfach den allgemeinen Wert.`,
+      },
+      {
+        heading: "Wie lade ich ein Brand-Logo hoch?",
+        body: `Unter „Brand Voice" findest du das Logo-Feld. PNG mit Transparenz ist ideal. Das Logo erscheint in jedem generierten Beitragsbild unten rechts — automatisch, ohne dass du was anklicken musst.`,
+      },
+    ],
+  },
+  {
+    id: "ai",
+    icon: Brain,
+    title: "Wie lernt die KI unseren Stil?",
+    summary: "Warum die Ergebnisse mit der Zeit besser werden.",
+    steps: [
+      {
+        heading: "Wird die KI wirklich trainiert?",
+        body: `Nein — nicht so, wie man es sich vorstellt. Die KI bleibt die gleiche (GPT). Was sich ändert: bei jeder Generierung bekommt sie frisch einen „Beipackzettel" mit — Brand Voice, ausgewählte alte Posts als Beispiele, Fakten aus den Wissens-Dokumenten. Je besser dieser Beipackzettel, desto besser das Ergebnis.`,
+      },
+      {
+        heading: "Warum werden die Texte mit der Zeit besser?",
+        body: `Jedes Mal wenn du etwas freigibst, wandert dieser Text automatisch in die Inspirations-Bibliothek als „Favorit". Die nächste Generierung hat also noch mehr deiner echten, gewollten Texte als Vorbild. Das System wächst mit deiner redaktionellen Arbeit.`,
+      },
+      {
+        heading: "Warum kommt jedes Mal ein anderer Text raus?",
+        body: `Die KI läuft mit einer leichten Zufallskomponente — das ist Absicht, damit nicht jeder Text gleich klingt. Wenn dir ein Ergebnis nicht passt: einfach „Neu generieren" klicken. Oft reicht ein zweiter Versuch.`,
+      },
+      {
+        heading: "Wie mache ich die Ergebnisse besser?",
+        body: `Drei einfache Hebel: (1) Tonfall-Beispiele in der Brand Voice pflegen. (2) Die besten alten Posts in der Bibliothek als Favorit markieren. (3) Konsequent freigeben — jede Freigabe füttert das System weiter.`,
+      },
     ],
   },
   {
     id: "team",
-    icon: Users,
-    title: "Team & Berechtigungen",
-    summary: "Rollen, Passwörter, Nutzer-Verwaltung.",
-    steps: [
-      `Einstellungen → Team. Nur Admins sehen diesen Bereich.`,
-      `Drei Rollen: Admin (alles), Editor (Inhalte erzeugen, bearbeiten, publishen) und Reviewer (nur bestehende Varianten prüfen und freigeben, nicht selbst bearbeiten).`,
-      `Neuer Nutzer wird direkt mit Passwort angelegt — kein E-Mail-Versand, keine Bestätigung. Den „Generieren"-Button neben dem Passwort-Feld nutzen, um ein starkes 16-Zeichen-Passwort zu erzeugen, über das Auge-Icon sichtbar machen, über das Kopier-Icon in die Zwischenablage.`,
-      `Rollen können jederzeit per Dropdown in der Nutzer-Liste geändert werden.`,
-    ],
-  },
-  {
-    id: "tips",
-    icon: Lightbulb,
-    title: "Tipps für bessere Ergebnisse",
-    summary: "Kleine Hebel mit großer Wirkung auf die Output-Qualität.",
-    steps: [
-      `Kurze, konkrete Briefings schlagen lange vage Briefings. Nenne die Kernbotschaft in einem Satz, dann 3–5 Fakten.`,
-      `Pflege die „Tonfall-Beispiele" in der Brand Voice — das ist der stärkste Ton-Anker und kostet dich nur einmal ein paar Minuten.`,
-      `Markiere deine besten echten Posts in der Inspirations-Bibliothek als „Featured". GPT nimmt sie bevorzugt als Few-Shot-Beispiele.`,
-      `Freigegebene Varianten werden automatisch zu Featured-Quellen — je mehr du nutzt und freigibst, desto besser passt der Output auf deinen Stil. Das System lernt aus deiner redaktionellen Arbeit.`,
-      `Wenn ein Output nicht passt: kleine Änderung am Briefing (spezifischer Hook, anderes Fakt) und neu generieren. Schneller als den Text manuell umzuschreiben.`,
-    ],
-  },
-  {
-    id: "ki-training",
-    icon: Brain,
-    title: "Wie die KI deinen Stil lernt",
-    summary:
-      "Kein klassisches Training — sondern ein System, das mit jeder Freigabe besser wird.",
+    icon: SettingsIcon,
+    title: "Team & Einstellungen",
+    summary: "Nutzer, WordPress, SMTP — nur für Admins sichtbar.",
     steps: [
       {
-        heading: "Das Grundprinzip",
-        body: `GPT wird NICHT im klassischen Sinn fine-getuned. Stattdessen baut das System bei jeder Generierung frisch einen Prompt zusammen, der GPT erklärt „so klingt KnowOn". Je besser dieser Prompt, desto besser der Output. Alles was du in Brand Voice, Bibliothek und Wissen einträgst, landet als Teil dieses Prompts in jeder einzelnen Generierung.`,
+        heading: "Wie lege ich einen neuen Nutzer an?",
+        body: `„Einstellungen → Team", dann „Nutzer anlegen". Name, E-Mail und ein Passwort eingeben (der „Generieren"-Button erzeugt ein starkes Passwort). Rolle wählen: Admin (alles), Editor (Inhalte erzeugen + bearbeiten), Reviewer (nur prüfen und freigeben).`,
       },
       {
-        heading: "Säule 1: Brand Voice (hart verankert)",
-        body: `Tonfall, Zielgruppe, Do's/Don'ts und vor allem die „Tonfall-Beispiele" werden IMMER in den System-Prompt gesetzt, bei jeder Generierung. Das ist der stabile Kern — eine Art hart verdrahtete Stil-Leitplanke, die GPT nie vergisst.`,
+        heading: "Wie verbinde ich WordPress?",
+        body: `„Einstellungen → Integrationen" → Abschnitt WordPress. Base-URL (z.B. https://www.knowon.de) + Benutzername + Application-Passwort eintragen. Das ist NICHT dein normales WP-Passwort — es wird separat in WordPress erzeugt unter „Profil → Application Passwords". „Testen"-Häkchen setzen und speichern.`,
       },
       {
-        heading: "Säule 2: Inspirations-Bibliothek (dynamische Beispiele)",
-        body: `Aus der Bibliothek werden pro Generierung die 4 relevantesten Posts PRO KANAL ausgewählt — sortiert nach Featured-Status und Aktualität. GPT liest sie als „so haben wir sowas in der Vergangenheit gemacht" und imitiert Rhythmus, Satzbau und Wortwahl. Es kopiert NICHT wörtlich (das ist explizit im Prompt verboten).`,
+        heading: "Wie konfiguriere ich E-Mail-Versand (SMTP)?",
+        body: `„Einstellungen → Integrationen" → Abschnitt „E-Mail / SMTP". Host, Port, Benutzer, Passwort eintragen. Wird aktuell nur gespeichert — der tatsächliche Mail-Versand bei Zuweisungen kommt in einer späteren Version dazu.`,
       },
       {
-        heading: "Säule 3: Kontext-Dokumente (Faktenbasis)",
-        body: `Alle aktiven Dokumente aus der Bibliothek „Wissen" landen als zusätzlicher Kontext im Prompt. GPT kennt damit interne Details, Produktdaten, Studien — Dinge, die es aus seinem eigenen Training nicht wissen kann.`,
-      },
-      {
-        heading: `Der Feedback-Loop — das eigentliche „Training"`,
-        body: `Sobald eine Variante den Status „Freigegeben" bekommt, wird sie automatisch als Featured-Post in die Inspirations-Bibliothek geschrieben. Damit wird sie ab sofort als Few-Shot-Beispiel in zukünftige Generierungen aufgenommen. Effekt: je mehr du redaktionell freigibst, desto stärker lernt das System deinen echten Stil — weil GPT immer mehr deiner bereits geprüften Texte als Referenz sieht, statt nur importierter Altbestand.`,
-      },
-      {
-        heading: "Warum kein klassisches Fine-Tuning?",
-        body: `Fine-Tuning würde mindestens 200+ geprüfte Beispiele verlangen, wäre teuer, nicht erklärbar und bei jeder Brand-Voice-Änderung neu nötig. Der aktuelle Ansatz ist vollständig transparent (du siehst exakt, was GPT bekommt), sofort änderbar (Brand Voice-Update = nächste Generierung nutzt die neue Version) und kostet nichts Extra.`,
-      },
-      {
-        heading: "So machst du es besser, schneller",
-        body: `(1) Tonfall-Beispiele in der Brand Voice pflegen. (2) Die besten alten Posts in der Bibliothek als Featured markieren. (3) Konsequent freigeben statt abbrechen — jeder „Freigegeben"-Klick bringt das System einen Schritt näher an deinen Stil.`,
+        heading: `Warum sehe ich „Einstellungen" nicht?`,
+        body: `Weil du Editor oder Reviewer bist, nicht Admin. Frag einen Admin, dich hochzustufen, wenn du Brand Voice oder Team pflegen willst.`,
       },
     ],
   },
   {
-    id: "data",
+    id: "privacy",
     icon: ShieldCheck,
-    title: "Daten & Technik im Hintergrund",
-    summary:
-      "Wo deine Daten liegen, wer sie sieht und was an externe Dienste geht.",
+    title: "Daten & Sicherheit",
+    summary: "Wo deine Daten liegen und was an externe Dienste geht.",
     steps: [
       {
-        heading: "Wo liegen die Daten?",
-        body: `Sämtliche Daten — Projekte, Varianten, Quellen, Notizen, Bilder, Brand Voice, User-Konten — leben in Supabase (Postgres + Storage), hosted in der EU. Die Anwendung selbst läuft auf Vercel. Beides sind professionelle Anbieter mit DSGVO-konformem Betrieb.`,
+        heading: "Wo liegen meine Daten?",
+        body: `Alles — Projekte, Texte, Bilder, Notizen, Nutzer — liegt bei Supabase in der EU. Die App selbst läuft auf Vercel. Beides sind professionelle Anbieter mit DSGVO-konformem Betrieb.`,
       },
       {
-        heading: "Was wird an OpenAI gesendet?",
-        body: `Bei jeder Generierung schickt der Server einen Prompt an OpenAI, der enthält: dein Thema, dein Briefing, die Brand Voice (Tonfall, Do's/Don'ts, Beispiele), bis zu 30 ausgewählte Inspirations-Posts pro Kanal, alle aktiven Kontext-Dokumente und die Kanal-Regeln. Kein Passwort, keine Auth-Tokens, keine WordPress-Credentials, keine Daten anderer Teams oder User.`,
+        heading: "Was wird an OpenAI geschickt?",
+        body: `Bei jeder Generierung: dein Thema, dein Briefing, die Brand Voice, die ausgewählten alten Posts als Stil-Beispiele, aktive Wissens-Dokumente. KEINE Passwörter, keine Zugangsdaten, keine Daten anderer Kunden.`,
       },
       {
-        heading: "Speichert OpenAI meine Daten?",
-        body: `Bei der OpenAI-API gilt: Anfragen werden standardmäßig 30 Tage zum Missbrauchs-Monitoring gespeichert, danach gelöscht. Deine Inhalte werden NICHT fürs Modell-Training verwendet — das ist der entscheidende Unterschied zur ChatGPT-Consumer-App. Siehe die OpenAI Enterprise Data Privacy Policy.`,
+        heading: "Werden meine Texte zum Trainieren der KI verwendet?",
+        body: `Nein. Die OpenAI-Schnittstelle, die wir hier nutzen, trainiert nicht mit den Daten. Das ist anders als bei ChatGPT direkt. Deine Briefings und Texte bleiben bei uns.`,
       },
       {
-        heading: "Wie sind die WordPress-Zugangsdaten gespeichert?",
-        body: `Die WP-Application-Password wird AES-256-GCM verschlüsselt in der DB abgelegt (Key via Env-Variable INTEGRATIONS_ENCRYPTION_KEY). Beim Publizieren wird sie kurz entschlüsselt, an die WP-REST-API gesendet, dann wieder verworfen. Keine Klartext-Speicherung.`,
-      },
-      {
-        heading: "Wer kann was sehen (RLS)?",
-        body: `Alle Schreib-Zugriffe laufen durch Server Actions, die den User + die Rolle prüfen. Zusätzlich hat Supabase Row Level Security auf den sensiblen Tabellen. Admins sehen alles, Editoren sehen alle Projekte und können sie bearbeiten, Reviewer können Varianten prüfen aber nicht selbst editieren.`,
-      },
-      {
-        heading: "RSS-Sync & Cron",
-        body: `Ein Vercel-Cron-Job läuft täglich um 06:00 UTC und holt neue Einträge aus allen aktiven RSS-Feeds. Der Cron-Endpoint ist mit einem CRON_SECRET gesichert — unautorisierte Aufrufe werden mit 401 abgewiesen. Manueller „Sync all" funktioniert jederzeit über Einstellungen → Integrationen.`,
-      },
-      {
-        heading: "URL-Importer & SSRF-Schutz",
-        body: `Wenn du eine URL in die Bibliothek importierst, prüft der Server vorher, dass sie kein internes Ziel ist (keine 127.x, 10.x, 192.168.x, 169.254.x usw.) — sonst könnte ein Team-User versehentlich interne Cloud-Metadata-Endpunkte abrufen lassen. Das ist ein Schutz gegen SSRF-Angriffe.`,
+        heading: "Wer im Team sieht welche Inhalte?",
+        body: `Alle Team-Mitglieder sehen alle Projekte — das System ist auf Zusammenarbeit ausgelegt. Unterschiede nur bei Aktionen: Reviewer können nicht selbst erzeugen oder direkt veröffentlichen, Editoren können alles außer Team-Verwaltung, Admins können alles.`,
       },
     ],
   },
   {
     id: "faq",
     icon: MessagesSquare,
-    title: "Häufige Fragen",
-    summary: "Schnelle Antworten auf typische Alltags-Fragen.",
+    title: "Noch mehr Fragen",
+    summary: "Was User sonst noch oft fragen.",
     steps: [
       {
-        heading: "Warum ist das Ergebnis jedes Mal anders, wenn ich neu generiere?",
-        body: `Das ist Absicht. GPT läuft mit Temperatur 0.8, also mit bewusster Varianz — sonst würde jede Generierung deterministisch denselben Text produzieren. Wenn dir ein Ergebnis nicht passt: kleine Änderung am Briefing und neu laufen lassen. Oft reicht ein zweiter Durchlauf mit unverändertem Input schon für einen besseren Treffer.`,
+        heading: "Was kostet eine Generierung?",
+        body: `Ein kompletter Durchlauf für alle Kanäle: ca. 1–4 Cent. Ein Blog-Beitragsbild: 15–25 Cent. Für etwa 20 Projekte pro Monat insgesamt üblicherweise unter 5 €.`,
       },
       {
-        heading: "Wie viel kostet eine Generierung?",
-        body: `Text-Generierung für alle 5 Kanäle zusammen: ~1–4 Cent (je nach Prompt-Länge). Ein KI-generiertes Blog-Beitragsbild bei quality=high: ~15–25 Cent. Das Haupt-Budget geht in Bilder, nicht Text. Für ~20 Projekte pro Monat sind das üblicherweise <5 €.`,
+        heading: "Kann ich die App auch ohne KI nutzen?",
+        body: `Teilweise — Texte kannst du manuell eingeben, indem du ein „leeres" Projekt erstellst und die Inhalte selbst tippst. Den vollen Komfort hast du aber mit der KI-Generierung.`,
       },
       {
-        heading: "Warum dauert die Bildgenerierung so lange?",
-        body: `gpt-image-1 läuft mit quality=high — das ist langsamer als „medium" oder „auto", liefert dafür deutlich realistischere Fotos. Typisch: 30–60 Sekunden. Danach läuft noch die serverseitige Overlay-Komposition (Gradient + Logo), die ~1–2 Sekunden dauert.`,
+        heading: "Was passiert, wenn ich etwas lösche?",
+        body: `Ein gelöschtes Projekt ist weg samt allen Kanal-Varianten und Notizen. Bereits freigegebene Texte, die als Favorit in der Inspirations-Bibliothek gelandet sind, bleiben dort — die müsstest du separat löschen.`,
       },
       {
-        heading: "Werden meine Inhalte zum Trainieren des GPT-Modells verwendet?",
-        body: `Nein. Die OpenAI-API (die wir hier nutzen) trainiert standardmäßig NICHT mit den Request-Daten. Das ist der wichtige Unterschied zur ChatGPT-Consumer-App. Deine Briefings und generierten Texte bleiben intern.`,
+        heading: "Können zwei Leute gleichzeitig am selben Projekt arbeiten?",
+        body: `Ja, aber wer zuletzt speichert, überschreibt. Nutze die Notizen auf jeder Kanal-Karte, um euch abzusprechen („Ich nehme LinkedIn, schau du auf Instagram").`,
       },
       {
-        heading: "Was passiert, wenn ich eine freigegebene Variante lösche?",
-        body: `Die Variante und ihre Notizen sind weg. ABER: der Featured-Eintrag, der beim Freigeben automatisch in die Inspirations-Bibliothek geschrieben wurde, bleibt bestehen — er hat eine eigene Identität in source_posts und ist vom Original entkoppelt. Du müsstest ihn separat aus der Bibliothek löschen, falls gewünscht.`,
+        heading: "Kann ich einen einzelnen Kanal deaktivieren?",
+        body: `Nicht global, aber pro Projekt: auf der „Erzeugen"-Seite einfach nicht ankreuzen. Oder auf der Projekt-Seite eine Kanal-Variante löschen, wenn du sie nicht brauchst.`,
       },
       {
-        heading: "Können zwei Leute gleichzeitig dasselbe Projekt bearbeiten?",
-        body: `Technisch ja, aber es gibt kein Locking — wer zuletzt speichert, gewinnt. Für ein kleines Team ist das in der Praxis kein Problem. Nutze die internen Notizen auf jeder Variant-Card, um Arbeit untereinander asynchron abzustimmen („Ich nehme mir LinkedIn, schau du auf Instagram").`,
-      },
-      {
-        heading: `Warum sehe ich die „Einstellungen"-Sektion nicht?`,
-        body: `Die Sektion ist nur für Admins sichtbar. Wenn du Editor oder Reviewer bist, fehlt sie komplett — das ist so gewollt. Frag einen Admin, dich hochzustufen, falls du Brand Voice, Team oder Integrationen pflegen willst.`,
-      },
-      {
-        heading: "Der Cron-Job läuft, aber ich sehe keine neuen Einträge — warum?",
-        body: `Wahrscheinlichste Ursachen: (1) der Feed hat tatsächlich keine neuen Posts seit dem letzten Sync; (2) der Feed ist „Inaktiv" (Schalter in Integrationen); (3) CRON_SECRET ist in Vercel nicht gesetzt, dann lehnt der Endpoint alle Aufrufe ab. Check in Integrationen den Zeitstempel „Letzter Sync" pro Feed.`,
-      },
-      {
-        heading: "Warum wird das Logo bei Bildern immer unten rechts eingeblendet?",
-        body: `Die Bildpipeline ist so gebaut: erst generiert gpt-image-1 das Rohbild, dann legt der Server den KnowOn-Gradient-Overlay (lila → teal) darüber, dann das hochgeladene Brand-Logo 1:1 in die rechte untere Ecke. Keine Umfärbung, Transparenz bleibt erhalten. Willst du ein anderes Logo? Einfach in Brand Voice neu hochladen — ab der nächsten Generierung aktiv.`,
-      },
-      {
-        heading: "Wie setze ich die Brand Voice zurück?",
-        body: `Es gibt zwei Wege: (1) manuell alle Felder in Einstellungen → Brand Voice leeren/anpassen und speichern; (2) das mitgelieferte Seed-Script ausführen (\`npm run seed:brand\`) — das setzt die Brand Voice auf den mitgelieferten KnowOn-Default zurück.`,
-      },
-      {
-        heading: "Kann ich einzelne Kanäle global deaktivieren?",
-        body: `Im Moment nein — die Kanäle sind hartkodiert. Du kannst aber auf der Erzeugen-Seite für jedes einzelne Projekt nur einen Teil der Kanäle auswählen. Wenn du z.B. Eyefox nicht mehr benutzt, wähle ihn einfach nie an.`,
+        heading: "Wie bekomme ich einen Kanal zurück, den ich gelöscht habe?",
+        body: `Auf der Projekt-Seite auf „Kanäle hinzufügen" klicken. Die KI generiert den fehlenden Kanal aus dem bestehenden Thema + Briefing nach.`,
       },
     ],
   },
