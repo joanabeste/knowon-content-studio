@@ -88,6 +88,34 @@ export default async function DashboardPage() {
   };
   const reviewQueue = (reviewQueueRaw ?? []) as ReviewQueueItem[];
 
+  // Personal review queue: only variants whose PARENT project is
+  // currently assigned to the logged-in user. The `!inner` on the
+  // join makes PostgREST do an actual join (not a left-join) so a
+  // missing/unfiltered relation drops the row rather than coming
+  // back with `project: null`.
+  const { data: myReviewsRaw } = await supabase
+    .from("content_variants")
+    .select(
+      "id, project_id, channel, status, created_at, project:content_projects!inner(topic, assigned_to, review_requested_at)",
+    )
+    .eq("status", "in_review")
+    .eq("project.assigned_to", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  type MyReviewItem = {
+    id: string;
+    project_id: string;
+    channel: Channel;
+    status: VariantStatus;
+    created_at: string;
+    project:
+      | { topic: string; assigned_to: string | null; review_requested_at: string | null }
+      | { topic: string; assigned_to: string | null; review_requested_at: string | null }[]
+      | null;
+  };
+  const myReviews = (myReviewsRaw ?? []) as MyReviewItem[];
+
   // Aggregate variant status counts for the top stats row.
   const { data: statusData } = await supabase
     .from("content_variants")
@@ -122,6 +150,60 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {/* Personal review queue — only rendered when the current user
+          is explicitly assigned as reviewer on at least one project.
+          Placed at the top so "on you" tasks are impossible to miss. */}
+      {myReviews.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-50/50 dark:bg-amber-500/5">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500 text-white">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-amber-900 dark:text-amber-100">
+                    Auf dich wartet {myReviews.length === 1 ? "eine Freigabe" : `${myReviews.length} Freigaben`}
+                  </CardTitle>
+                  <CardDescription>
+                    Du wurdest als Reviewer für diese Projekte zugewiesen.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1">
+              {myReviews.map((v) => {
+                const project = Array.isArray(v.project) ? v.project[0] : v.project;
+                const topic = project?.topic;
+                const requestedAt = project?.review_requested_at ?? v.created_at;
+                return (
+                  <li key={v.id}>
+                    <Link
+                      href={`/projects/${v.project_id}`}
+                      className="group flex items-center justify-between gap-3 rounded-md border border-transparent px-2 py-2 transition-colors hover:border-amber-500/40 hover:bg-amber-100/40 dark:hover:bg-amber-500/10"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          {topic || "Ohne Thema"}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span>{CHANNEL_LABELS[v.channel as Channel]}</span>
+                          <span>·</span>
+                          <span>Angefragt {formatRelative(requestedAt)}</span>
+                        </div>
+                      </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -142,9 +224,11 @@ export default async function DashboardPage() {
           label="In Review"
           value={counts.in_review}
           sublabel={
-            counts.in_review > 0
-              ? STAT_SUBLABELS.in_review.normal
-              : STAT_SUBLABELS.in_review.empty
+            myReviews.length > 0
+              ? `${myReviews.length} davon bei dir`
+              : counts.in_review > 0
+                ? STAT_SUBLABELS.in_review.normal
+                : STAT_SUBLABELS.in_review.empty
           }
           color="amber"
         />
