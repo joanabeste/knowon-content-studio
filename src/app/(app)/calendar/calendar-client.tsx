@@ -12,6 +12,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { PostChipPresentation } from "./components/post-chip";
+import { PostPreview } from "./components/post-preview";
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rows3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,13 @@ export function CalendarClient({
   // The entry the user is currently holding — drives the DragOverlay
   // floating preview so it's visually obvious what's in their hand.
   const [activeEntry, setActiveEntry] = useState<CalendarEntry | null>(null);
+
+  // Quick-preview overlay: shown when a user clicks a chip (click,
+  // not drag). Keeps the calendar in view while surfacing the key
+  // facts of the post plus a direct link to the editor.
+  const [previewEntry, setPreviewEntry] = useState<CalendarEntry | null>(
+    null,
+  );
 
   const entries = useMemo(() => {
     return serverEntries.map((e) => {
@@ -336,6 +344,7 @@ export function CalendarClient({
             anchor={anchor}
             entriesByDay={entriesByDay}
             canEdit={canEdit}
+            onPreview={setPreviewEntry}
           />
         )}
         {view === "week" && (
@@ -343,9 +352,17 @@ export function CalendarClient({
             anchor={anchor}
             entriesByDay={entriesByDay}
             canEdit={canEdit}
+            onPreview={setPreviewEntry}
           />
         )}
         {view === "list" && <DateList entries={sortedList} />}
+
+        {previewEntry && (
+          <PostPreview
+            entry={previewEntry}
+            onClose={() => setPreviewEntry(null)}
+          />
+        )}
       </div>
 
       <DragOverlay dropAnimation={null}>

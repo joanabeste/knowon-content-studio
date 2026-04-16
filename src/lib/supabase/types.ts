@@ -210,6 +210,20 @@ export interface ContextDocument {
   updated_at: string;
 }
 
+export interface ProjectIdea {
+  id: string;
+  title: string;
+  notes: string | null;
+  suggested_channels: Channel[] | null;
+  target_date: string | null;
+  created_by: string | null;
+  converted_to_project_id: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  author?: { full_name: string | null } | null;
+}
+
 export interface ContentFeed {
   id: string;
   name: string;

@@ -11,6 +11,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  Lightbulb,
   Users,
   Mic,
   Plug,
@@ -40,6 +41,7 @@ const sections: NavSection[] = [
     title: "Arbeitsbereich",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/ideas", label: "Ideen", icon: Lightbulb },
       { href: "/generate", label: "Erzeugen", icon: Sparkles },
       { href: "/projects", label: "Projekte", icon: FolderOpen },
       { href: "/calendar", label: "Kalender", icon: CalendarDays },

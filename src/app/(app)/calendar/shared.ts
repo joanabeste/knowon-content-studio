@@ -1,3 +1,12 @@
+import {
+  FileText,
+  Instagram,
+  Linkedin,
+  Mail,
+  Megaphone,
+  Newspaper,
+  type LucideIcon,
+} from "lucide-react";
 import type { Channel, VariantStatus } from "@/lib/supabase/types";
 
 export const STATUS_LABELS: Record<VariantStatus, string> = {
@@ -28,13 +37,18 @@ export const STATUS_ORDER: VariantStatus[] = [
   "published",
 ];
 
-export const CHANNEL_ICONS: Record<Channel, string> = {
-  linkedin: "in",
-  instagram: "ig",
-  iprendo_news: "ip",
-  eyefox: "ey",
-  newsletter: "@",
-  blog: "wp",
+/**
+ * Lucide icons we use for each channel inside calendar chips. Kept in
+ * one place so MonthGrid, WeekGrid, DateList and the drag overlay
+ * render the same visual regardless of density.
+ */
+export const CHANNEL_ICONS: Record<Channel, LucideIcon> = {
+  linkedin: Linkedin,
+  instagram: Instagram,
+  iprendo_news: Megaphone,
+  eyefox: Newspaper,
+  newsletter: Mail,
+  blog: FileText,
 };
 
 /** Key a date as YYYY-MM-DD in local time (matters for calendars). */

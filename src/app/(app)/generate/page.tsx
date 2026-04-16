@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { GenerateForm } from "./generate-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,9 @@ export default async function GeneratePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <GenerateForm />
+          <Suspense fallback={null}>
+            <GenerateForm />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

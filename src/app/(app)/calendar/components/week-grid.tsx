@@ -17,11 +17,13 @@ function WeekColumn({
   entries,
   isToday,
   canEdit,
+  onPreview,
 }: {
   date: Date;
   entries: CalendarEntry[];
   isToday: boolean;
   canEdit: boolean;
+  onPreview: (entry: CalendarEntry) => void;
 }) {
   const key = dayKey(date);
   const { setNodeRef, isOver } = useDroppable({
@@ -51,7 +53,12 @@ function WeekColumn({
           <p className="text-[10px] italic text-muted-foreground">—</p>
         ) : (
           entries.map((e) => (
-            <PostChip key={e.id} entry={e} draggable={canEdit} />
+            <PostChip
+              key={e.id}
+              entry={e}
+              draggable={canEdit}
+              onClick={onPreview}
+            />
           ))
         )}
       </div>
@@ -63,10 +70,12 @@ export function WeekGrid({
   anchor,
   entriesByDay,
   canEdit,
+  onPreview,
 }: {
   anchor: Date;
   entriesByDay: Map<string, CalendarEntry[]>;
   canEdit: boolean;
+  onPreview: (entry: CalendarEntry) => void;
 }) {
   const start = startOfWeekMonday(anchor);
   const today = new Date();
@@ -82,6 +91,7 @@ export function WeekGrid({
             entries={entriesByDay.get(dayKey(d)) ?? []}
             isToday={sameDay(d, today)}
             canEdit={canEdit}
+            onPreview={onPreview}
           />
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { SlidersHorizontal, X } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ALL_CHANNELS,
@@ -46,10 +47,20 @@ export function FilterBar({
   const clear = () =>
     setFilters({ status: [], channel: [], project: null, owner: null });
 
+  // Default open when filters are active so the user sees what's
+  // applied. When none are set, stay collapsed to keep the calendar
+  // visually quiet.
+  const [open, setOpen] = useState(activeCount > 0);
+
   return (
     <section className="overflow-hidden rounded-lg border bg-card">
-      <header className="flex items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2">
-        <div className="flex items-center gap-2 text-sm font-semibold">
+      <header className="flex items-center justify-between gap-2 bg-muted/30 px-4 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold hover:text-foreground"
+          aria-expanded={open}
+        >
           <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
           Filter
           {activeCount > 0 && (
@@ -57,7 +68,13 @@ export function FilterBar({
               {activeCount} aktiv
             </span>
           )}
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
         {activeCount > 0 && (
           <button
             type="button"
@@ -65,12 +82,13 @@ export function FilterBar({
             className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             <X className="h-3 w-3" />
-            Alle zurücksetzen
+            Zurücksetzen
           </button>
         )}
       </header>
 
-      <div className="divide-y">
+      {open && (
+      <div className="divide-y border-t">
         <FilterRow label="Status">
           {STATUS_ORDER.map((s: VariantStatus) => {
             const active = filters.status.includes(s);
@@ -142,6 +160,7 @@ export function FilterBar({
           </select>
         </FilterRow>
       </div>
+      )}
     </section>
   );
 }

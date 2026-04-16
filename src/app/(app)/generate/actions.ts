@@ -30,6 +30,7 @@ export async function generateContent(formData: FormData) {
 
   const topic = getFormString(formData, "topic");
   const brief = getFormString(formData, "brief");
+  const fromIdea = getFormString(formData, "from_idea");
   const selectedChannels = parseSelectedChannels(formData);
 
   if (!topic) return { error: "Thema fehlt." };
@@ -87,8 +88,20 @@ export async function generateContent(formData: FormData) {
     action: "generated_preview",
     target_type: "content_project",
     target_id: project.id,
-    payload: { topic, channels: selectedChannels },
+    payload: { topic, channels: selectedChannels, from_idea: fromIdea },
   });
+
+  // If this generation started from an idea, link the new project
+  // back to it so the idea list can show "Projekt angelegt".
+  if (fromIdea) {
+    await supabase
+      .from("project_ideas")
+      .update({
+        converted_to_project_id: project.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", fromIdea);
+  }
 
   redirect(`/generate/preview/${project.id}`);
 }

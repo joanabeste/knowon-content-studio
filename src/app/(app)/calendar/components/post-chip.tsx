@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CHANNEL_LABELS } from "@/lib/supabase/types";
 import type { CalendarEntry } from "../page";
 import {
+  CHANNEL_ICONS,
   STATUS_BORDERS,
   STATUS_COLORS,
   STATUS_LABELS,
@@ -33,6 +34,7 @@ export function PostChipPresentation({
   lifted?: boolean;
   className?: string;
 }) {
+  const Icon = CHANNEL_ICONS[entry.channel];
   return (
     <div
       className={cn(
@@ -49,12 +51,13 @@ export function PostChipPresentation({
     >
       <span
         className={cn(
-          "shrink-0 rounded-sm px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wide",
+          "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm",
           STATUS_COLORS[entry.status],
         )}
-        title={STATUS_LABELS[entry.status]}
+        title={`${CHANNEL_LABELS[entry.channel]} · ${STATUS_LABELS[entry.status]}`}
+        aria-label={CHANNEL_LABELS[entry.channel]}
       >
-        {CHANNEL_LABELS[entry.channel].slice(0, 3)}
+        <Icon className="h-2.5 w-2.5" />
       </span>
       <span className="min-w-0 flex-1 truncate">{entry.project_topic}</span>
     </div>
@@ -64,17 +67,24 @@ export function PostChipPresentation({
 /**
  * A single post pill rendered inside a calendar cell. Draggable
  * for editors/admins (the DnD context above disables the sensor
- * entirely for reviewers, so we don't need to branch here). Click
- * navigates to the project detail.
+ * entirely for reviewers, so we don't need to branch here).
+ *
+ * Click behaviour:
+ * - If `onClick` is provided (default in the calendar), it opens the
+ *   quick-preview dialog instead of navigating straight to the project.
+ * - Otherwise falls back to a Link → /projects/[id] (used in date-list
+ *   and other static contexts).
  */
 export function PostChip({
   entry,
   compact = false,
   draggable = true,
+  onClick,
 }: {
   entry: CalendarEntry;
   compact?: boolean;
   draggable?: boolean;
+  onClick?: (entry: CalendarEntry) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: entry.id,
@@ -86,6 +96,50 @@ export function PostChip({
     <PostChipPresentation entry={entry} compact={compact} ghost={isDragging} />
   );
 
+  // Preview-mode: button instead of link so clicking opens the quick
+  // preview. Drag is disabled when not draggable (reviewers).
+  if (onClick) {
+    const handleClick = (e: React.MouseEvent) => {
+      if (isDragging) {
+        e.preventDefault();
+        return;
+      }
+      onClick(entry);
+    };
+
+    if (draggable) {
+      return (
+        <div
+          ref={setNodeRef}
+          {...listeners}
+          {...attributes}
+          className={cn(
+            "touch-none cursor-grab active:cursor-grabbing",
+            isDragging && "cursor-grabbing",
+          )}
+        >
+          <button
+            type="button"
+            onClick={handleClick}
+            className="block w-full text-left"
+          >
+            {presentation}
+          </button>
+        </div>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        className="block w-full text-left"
+      >
+        {presentation}
+      </button>
+    );
+  }
+
+  // Legacy link mode — kept for DateList and any non-calendar caller.
   if (draggable) {
     return (
       <div
@@ -100,9 +154,6 @@ export function PostChip({
         <Link
           href={`/projects/${entry.project_id}`}
           onClick={(e) => {
-            // If the user actually dragged, dnd-kit sets pointer
-            // capture and React fires click only on a static press.
-            // We don't need to block anything manually.
             if (isDragging) e.preventDefault();
           }}
           className="block"

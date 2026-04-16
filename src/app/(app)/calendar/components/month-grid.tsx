@@ -18,12 +18,14 @@ function DayCell({
   isOtherMonth,
   isToday,
   canEdit,
+  onPreview,
 }: {
   date: Date;
   entries: CalendarEntry[];
   isOtherMonth: boolean;
   isToday: boolean;
   canEdit: boolean;
+  onPreview: (entry: CalendarEntry) => void;
 }) {
   const key = dayKey(date);
   const { setNodeRef, isOver } = useDroppable({
@@ -55,7 +57,13 @@ function DayCell({
       </div>
       <div className="flex flex-col gap-1">
         {visible.map((e) => (
-          <PostChip key={e.id} entry={e} compact draggable={canEdit} />
+          <PostChip
+            key={e.id}
+            entry={e}
+            compact
+            draggable={canEdit}
+            onClick={onPreview}
+          />
         ))}
         {extra > 0 && (
           <span className="text-[10px] text-muted-foreground">
@@ -71,10 +79,12 @@ export function MonthGrid({
   anchor,
   entriesByDay,
   canEdit,
+  onPreview,
 }: {
   anchor: Date;
   entriesByDay: Map<string, CalendarEntry[]>;
   canEdit: boolean;
+  onPreview: (entry: CalendarEntry) => void;
 }) {
   const monthStart = new Date(
     anchor.getFullYear(),
@@ -110,6 +120,7 @@ export function MonthGrid({
             isOtherMonth={d.getMonth() !== anchor.getMonth()}
             isToday={sameDay(d, today)}
             canEdit={canEdit}
+            onPreview={onPreview}
           />
         ))}
       </div>
