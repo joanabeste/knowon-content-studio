@@ -356,44 +356,53 @@ function QuickAddForm() {
     <form
       onSubmit={submit}
       className={cn(
-        "rounded-md border bg-card p-2 transition-shadow",
-        expanded && "shadow-sm ring-1 ring-knowon-pink/30",
+        "rounded-lg border-2 border-dashed bg-card p-4 transition-all",
+        expanded
+          ? "border-knowon-pink/50 border-solid shadow-sm"
+          : "border-knowon-pink/30 hover:border-knowon-pink/50",
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <Lightbulb className="h-4 w-4 text-knowon-pink" />
+        <span className="text-sm font-semibold">Neue Idee</span>
+        <span className="text-xs text-muted-foreground">
+          — Titel eingeben, dann Enter oder „Hinzufügen"
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onFocus={() => setFocused(true)}
-          placeholder="Neue Idee — Titel eingeben und Enter drücken…"
-          className="h-8 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+          placeholder="z.B. Neuer Online-Kurs Glaukom-Diagnostik"
+          className="h-10 text-sm"
           disabled={pending}
         />
+        <Button
+          type="submit"
+          size="default"
+          disabled={pending || !title.trim()}
+          className="shrink-0"
+        >
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
+          Hinzufügen
+        </Button>
         {expanded && (
-          <div className="flex items-center gap-1">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={pending || !title.trim()}
-            >
-              {pending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )}
-              Speichern
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={reset}
-              disabled={pending}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Button
+            type="button"
+            size="default"
+            variant="ghost"
+            onClick={reset}
+            disabled={pending}
+            className="shrink-0"
+            aria-label="Abbrechen"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         )}
       </div>
 
