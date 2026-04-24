@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { changeOwnPassword, updateOwnName } from "../team/actions";
 import { Loader2 } from "lucide-react";
@@ -79,9 +80,8 @@ export function AccountForm({ initialName }: { initialName: string | null }) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="new-password">Neues Passwort</Label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               minLength={12}
               autoComplete="new-password"
               value={password}
@@ -90,9 +90,8 @@ export function AccountForm({ initialName }: { initialName: string | null }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Bestätigen</Label>
-            <Input
+            <PasswordInput
               id="confirm-password"
-              type="password"
               minLength={12}
               autoComplete="new-password"
               value={confirm}

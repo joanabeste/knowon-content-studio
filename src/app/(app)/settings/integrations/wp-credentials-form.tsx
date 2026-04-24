@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import {
@@ -112,9 +113,8 @@ export function WpCredentialsForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="app_password">Application Password</Label>
-        <Input
+        <PasswordInput
           id="app_password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={hasPassword ? "••••••••••••••••" : "xxxx xxxx xxxx xxxx"}

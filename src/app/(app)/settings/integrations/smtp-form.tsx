@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { saveSmtpConfig } from "./smtp-actions";
 import type { SmtpConfig, SmtpConfigInput } from "./smtp-types";
@@ -91,9 +92,8 @@ export function SmtpForm({ initial }: { initial: SmtpConfig }) {
               </span>
             )}
           </Label>
-          <Input
+          <PasswordInput
             id="smtp-pass"
-            type="password"
             value={state.password}
             onChange={(e) => set("password", e.target.value)}
             autoComplete="new-password"
