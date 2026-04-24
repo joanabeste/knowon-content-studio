@@ -342,13 +342,28 @@ function QuickAddForm() {
     if (targetDate) fd.set("target_date", targetDate);
     for (const c of channels) fd.append("suggested_channels", c);
     start(async () => {
-      const res = await createIdea(fd);
-      if ("error" in res && res.error) {
-        toast.show(res.error, "error");
-        return;
+      try {
+        const res = await createIdea(fd);
+        // Server-Action kann theoretisch auch `undefined` zurückgeben
+        // (Redirect, Throw innerhalb der Action). Ohne Guard würde
+        // `"error" in res` eine TypeError werfen und die Global-Error-
+        // Boundary triggern — das ist der Grund für das minifizierte
+        // "e[o] is not a function" im Prod-Bundle.
+        if (!res) {
+          toast.show("Speichern fehlgeschlagen — bitte Seite neu laden.", "error");
+          return;
+        }
+        if ("error" in res && res.error) {
+          toast.show(res.error, "error");
+          return;
+        }
+        toast.show("Idee gespeichert.", "success");
+        reset();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[createIdea] client failed", err);
+        toast.show(`Speichern fehlgeschlagen: ${msg}`, "error");
       }
-      toast.show("Idee gespeichert.", "success");
-      reset();
     });
   };
 
@@ -708,14 +723,24 @@ function IdeaEditForm({
     if (targetDate) fd.set("target_date", targetDate);
     for (const c of channels) fd.append("suggested_channels", c);
     start(async () => {
-      const res = await updateIdea(idea.id, fd);
-      if ("error" in res && res.error) {
-        toast.show(res.error, "error");
-        return;
+      try {
+        const res = await updateIdea(idea.id, fd);
+        if (!res) {
+          toast.show("Speichern fehlgeschlagen — bitte Seite neu laden.", "error");
+          return;
+        }
+        if ("error" in res && res.error) {
+          toast.show(res.error, "error");
+          return;
+        }
+        toast.show("Gespeichert.", "success");
+        onDone();
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[updateIdea] client failed", err);
+        toast.show(`Speichern fehlgeschlagen: ${msg}`, "error");
       }
-      toast.show("Gespeichert.", "success");
-      onDone();
-      router.refresh();
     });
   };
 
