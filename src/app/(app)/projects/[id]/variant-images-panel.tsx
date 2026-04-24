@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
   Copy,
   Image as ImageIcon,
   Link as LinkIcon,
@@ -47,6 +48,7 @@ export function VariantImagesPanel({
   const [pending, start] = useTransition();
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [open, setOpen] = useState(images.length > 0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onUpload = (file: File) => {
@@ -105,9 +107,14 @@ export function VariantImagesPanel({
   };
 
   return (
-    <div className="space-y-2 rounded-md border bg-muted/10 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-md border bg-muted/10">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+        >
           <ImageIcon className="h-3.5 w-3.5" />
           Bilder
           {images.length > 0 && (
@@ -115,8 +122,14 @@ export function VariantImagesPanel({
               {images.length}
             </span>
           )}
-        </div>
-        {canEdit && (
+          <ChevronDown
+            className={cn(
+              "ml-1 h-3.5 w-3.5 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+        {canEdit && open && (
           <div className="flex items-center gap-1.5">
             <input
               ref={fileInputRef}
@@ -159,6 +172,8 @@ export function VariantImagesPanel({
         )}
       </div>
 
+      {open && (
+      <div className="space-y-2 border-t p-3">
       {showUrlInput && canEdit && (
         <form onSubmit={submitUrl} className="flex items-center gap-1.5">
           <Input
@@ -238,6 +253,8 @@ export function VariantImagesPanel({
             </div>
           ))}
         </div>
+      )}
+      </div>
       )}
     </div>
   );

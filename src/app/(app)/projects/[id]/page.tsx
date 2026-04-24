@@ -156,77 +156,94 @@ export default async function ProjectDetailPage({
   const total = channels.length;
   const approvedOrPublished = statusCounts.approved + statusCounts.published;
 
+  const relevantVariants = Array.from(latestByChannel.values()).filter((v) =>
+    channels.includes(v.channel),
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="muted">
-            {approvedOrPublished}/{total} freigegeben
-          </Badge>
-          {statusCounts.in_review > 0 && (
-            <Badge
-              variant="outline"
-              className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-            >
-              {statusCounts.in_review} in Review
-            </Badge>
-          )}
-          {statusCounts.draft > 0 && (
-            <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>
-          )}
-          {statusCounts.published > 0 && (
-            <Badge variant="default">
-              {statusCounts.published} veröffentlicht
-            </Badge>
-          )}
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Erstellt {formatDate(p.created_at)}</span>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <main className="min-w-0 flex-1 space-y-6">
+        <header className="space-y-3">
+          <div className="flex items-start gap-3 pr-14">
+            <h1 className="flex-1 text-3xl font-bold leading-tight">
+              {p.topic}
+            </h1>
             {canDelete && (
               <DeleteProjectButton projectId={p.id} topic={p.topic} iconOnly />
             )}
           </div>
-        </div>
-        {/* pr-14 leaves room for the fixed top-right help button */}
-        <div className="pr-14">
-          <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
-        </div>
-        {p.brief && (
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {p.brief}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1">
-          {channels.map((ch) => (
-            <Badge key={ch} variant="secondary" className="capitalize">
-              {CHANNEL_LABELS[ch]}
+          {p.brief && (
+            <p className="max-w-prose whitespace-pre-wrap text-sm text-muted-foreground">
+              {p.brief}
+            </p>
+          )}
+        </header>
+
+        <ProjectDetailClient
+          projectId={id}
+          channels={channels}
+          variants={relevantVariants}
+          notesByVariant={Object.fromEntries(notesByVariant)}
+          images={projectImages}
+          imagesByVariant={imagesByVariant}
+          role={profile.role}
+          currentUserId={user.id}
+        />
+      </main>
+
+      <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-6 lg:w-80 lg:self-start">
+        <section className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Status
+          </h2>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="muted">
+              {approvedOrPublished}/{total} freigegeben
             </Badge>
-          ))}
-        </div>
-      </div>
+            {statusCounts.in_review > 0 && (
+              <Badge
+                variant="outline"
+                className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+              >
+                {statusCounts.in_review} in Review
+              </Badge>
+            )}
+            {statusCounts.draft > 0 && (
+              <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>
+            )}
+            {statusCounts.published > 0 && (
+              <Badge variant="default">
+                {statusCounts.published} veröffentlicht
+              </Badge>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Erstellt {formatDate(p.created_at)}
+          </p>
+        </section>
 
-      <ProjectActionsBar
-        project={p}
-        variants={Array.from(latestByChannel.values()).filter((v) =>
-          channels.includes(v.channel),
-        )}
-        profiles={profiles}
-        assignedProfile={assignedProfile}
-        currentUserId={user.id}
-        role={profile.role}
-      />
+        <ProjectActionsBar
+          project={p}
+          variants={relevantVariants}
+          profiles={profiles}
+          assignedProfile={assignedProfile}
+          currentUserId={user.id}
+          role={profile.role}
+        />
 
-      <ProjectDetailClient
-        projectId={id}
-        channels={channels}
-        variants={Array.from(latestByChannel.values()).filter((v) =>
-          channels.includes(v.channel),
-        )}
-        notesByVariant={Object.fromEntries(notesByVariant)}
-        images={projectImages}
-        imagesByVariant={imagesByVariant}
-        role={profile.role}
-        currentUserId={user.id}
-      />
+        <section className="space-y-2 rounded-lg border bg-card p-4 shadow-sm">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Kanäle
+          </h2>
+          <div className="flex flex-wrap gap-1">
+            {channels.map((ch) => (
+              <Badge key={ch} variant="secondary" className="capitalize">
+                {CHANNEL_LABELS[ch]}
+              </Badge>
+            ))}
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }

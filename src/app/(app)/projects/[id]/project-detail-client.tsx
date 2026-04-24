@@ -76,7 +76,7 @@ export function ProjectDetailClient({
   const defaultTab = channels[0] ?? (showAddTab ? ADD_TAB : "blog");
 
   return (
-    <Tabs defaultValue={defaultTab}>
+    <Tabs defaultValue={defaultTab} variant="underline">
       <TabsList className="w-full overflow-x-auto">
         {channels.map((ch) => {
           const Icon = CHANNEL_ICONS[ch];
@@ -100,10 +100,7 @@ export function ProjectDetailClient({
           );
         })}
         {showAddTab && (
-          <TabsTrigger
-            value={ADD_TAB}
-            className="border border-dashed border-muted-foreground/40 text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary"
-          >
+          <TabsTrigger value={ADD_TAB}>
             <Plus className="h-4 w-4" />
             Kanal hinzufügen
           </TabsTrigger>

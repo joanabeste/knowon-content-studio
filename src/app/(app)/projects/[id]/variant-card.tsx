@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Trash2,
   MessageSquare,
+  ChevronDown,
   User as UserIcon,
 } from "lucide-react";
 import {
@@ -258,7 +259,10 @@ export function VariantCard({
             )}
           </div>
         </div>
-        <AttributionLine variant={variant} />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <AttributionLine variant={variant} />
+          <SchedulePicker variant={variant} canEdit={canEdit} />
+        </div>
         {charLimit && (
           <CardDescription
             className={cn(
@@ -273,8 +277,6 @@ export function VariantCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <SchedulePicker variant={variant} canEdit={canEdit} />
-
         {/* Newsletter-specific header fields */}
         {variant.channel === "newsletter" && (
           <div className="grid gap-3 rounded-md border bg-muted/30 p-3 sm:grid-cols-2">
@@ -627,7 +629,7 @@ function AttributionLine({
   if (!author && !reviewer) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
       {author && (
         <span className="inline-flex items-center gap-1">
           <UserIcon className="h-3 w-3" />
@@ -674,6 +676,7 @@ function NotesThread({
   role: UserRole;
 }) {
   const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(notes.length > 0);
   const [pending, start] = useTransition();
   const toast = useToast();
 
@@ -704,8 +707,13 @@ function NotesThread({
   };
 
   return (
-    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
+    <div className="rounded-md border bg-muted/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground transition hover:text-foreground"
+      >
         <MessageSquare className="h-3.5 w-3.5" />
         Interne Notizen
         {notes.length > 0 && (
@@ -713,8 +721,15 @@ function NotesThread({
             {notes.length}
           </span>
         )}
-      </div>
-
+        <ChevronDown
+          className={cn(
+            "ml-auto h-3.5 w-3.5 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+      <div className="space-y-3 border-t bg-background/40 p-3">
       {notes.length > 0 ? (
         <ul className="divide-y divide-border/60 rounded-md border bg-background">
           {notes.map((n) => {
@@ -798,6 +813,8 @@ function NotesThread({
           </Button>
         </div>
       </form>
+      </div>
+      )}
     </div>
   );
 }

@@ -39,8 +39,8 @@ export function SchedulePicker({
 
   if (!canEdit) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        <CalendarClock className="h-3.5 w-3.5" />
+      <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <CalendarClock className="h-3 w-3" />
         <span>
           {variant.scheduled_at
             ? `Geplant: ${formatRelative(variant.scheduled_at)}`
@@ -51,9 +51,11 @@ export function SchedulePicker({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs">
-      <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-      <Label className="text-xs text-muted-foreground">Geplant für</Label>
+    <div className="inline-flex flex-wrap items-center gap-1.5">
+      <Label className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        <CalendarClock className="h-3 w-3" />
+        Geplant für
+      </Label>
       <input
         type="datetime-local"
         value={value}
@@ -74,12 +76,11 @@ export function SchedulePicker({
             save("");
           }}
           disabled={pending}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
           aria-label="Termin löschen"
           title="Termin entfernen"
         >
           <XIcon className="h-3 w-3" />
-          Termin entfernen
         </button>
       )}
     </div>
