@@ -61,13 +61,15 @@ export function RegenerateVariantButton({
   if (!open) {
     return (
       <Button
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen(true)}
         disabled={disabled}
+        title="Neu generieren"
+        aria-label="Neu generieren"
+        className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <RefreshCw className="h-4 w-4" />
-        Neu generieren
       </Button>
     );
   }

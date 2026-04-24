@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
-import { HelpPanel } from "@/components/help-panel";
 import { ToastProvider } from "@/components/ui/toast";
 
 export default async function AppLayout({
@@ -32,7 +31,6 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
-      <HelpPanel />
       <div className="flex min-h-screen">
         <Sidebar
           role={profile.role}

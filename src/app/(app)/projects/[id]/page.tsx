@@ -165,7 +165,7 @@ export default async function ProjectDetailPage({
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <main className="min-w-0 flex-1 space-y-6">
         <header className="space-y-3">
-          <div className="flex items-start gap-3 pr-14">
+          <div className="flex items-start gap-3">
             <EditableProjectTitle
               projectId={p.id}
               initialTopic={p.topic}

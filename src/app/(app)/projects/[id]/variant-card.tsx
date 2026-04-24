@@ -221,25 +221,31 @@ export function VariantCard({
             )}
             <VersionHistory variant={variant} canRestore={canEdit} />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={copy}>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={copy}
+              title={copied ? "Kopiert" : "Text kopieren"}
+              aria-label="Text kopieren"
+              className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
               {copied ? (
-                <>
-                  <Check className="h-4 w-4" /> Kopiert
-                </>
+                <Check className="h-4 w-4 text-knowon-teal" />
               ) : (
-                <>
-                  <Copy className="h-4 w-4" /> Kopieren
-                </>
+                <Copy className="h-4 w-4" />
               )}
             </Button>
             {canEdit && !editing && (
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={() => setEditing(true)}
+                title="Bearbeiten"
+                aria-label="Bearbeiten"
+                className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                <Edit3 className="h-4 w-4" /> Bearbeiten
+                <Edit3 className="h-4 w-4" />
               </Button>
             )}
             {canEdit && !editing && (
@@ -252,7 +258,8 @@ export function VariantCard({
                 onClick={onDeleteVariant}
                 disabled={pending}
                 title="Variante löschen"
-                className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Variante löschen"
+                className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
