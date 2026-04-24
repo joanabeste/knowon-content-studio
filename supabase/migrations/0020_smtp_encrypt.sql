@@ -11,10 +11,55 @@
 -- receives a `password_set` boolean so the form can show a
 -- "konfiguriert" placeholder.
 --
--- Idempotent: handles all three possible states
---   a) fresh install from 0018: column "password" exists → rename
---   b) partially migrated:      both columns exist → drop "password"
---   c) already migrated:        only "password_encrypted" exists → noop
+-- Idempotent + self-bootstrapping: handles all four possible states
+--   a) table missing entirely → create it with password_encrypted
+--   b) fresh install from 0018: column "password" exists → rename
+--   c) partially migrated:      both columns exist → drop "password"
+--   d) already migrated:        only "password_encrypted" exists → noop
+
+-- Fresh-install safety net: older deployments used an earlier baseline
+-- migration that created smtp_config. If 0018 was skipped (or the DB
+-- is fresh and that migration hasn't run yet) we create the table
+-- ourselves, so this migration can stand on its own.
+create table if not exists public.smtp_config (
+  id int primary key default 1,
+  host text,
+  port int,
+  username text,
+  from_name text,
+  from_email text,
+  secure boolean not null default true,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null,
+  constraint smtp_config_singleton check (id = 1)
+);
+
+insert into public.smtp_config (id) values (1) on conflict (id) do nothing;
+
+alter table public.smtp_config enable row level security;
+
+drop policy if exists "smtp_config: admin read" on public.smtp_config;
+create policy "smtp_config: admin read"
+  on public.smtp_config for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin'
+    )
+  );
+
+drop policy if exists "smtp_config: admin update" on public.smtp_config;
+create policy "smtp_config: admin update"
+  on public.smtp_config for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin'
+    )
+  )
+  with check (true);
 
 do $$
 declare
