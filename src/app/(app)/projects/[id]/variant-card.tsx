@@ -73,6 +73,17 @@ export function VariantCard({
   const [pending, start] = useTransition();
   const toast = useToast();
 
+  // Wenn die Server-Komponente nach einer Aktion wie „Notiz per
+  // Zauberstab einarbeiten" (router.refresh) neue Props reinreicht,
+  // übernehmen wir den frischen Text — aber nur solange der Nutzer
+  // nicht selbst gerade editiert, damit in-progress Änderungen nicht
+  // überschrieben werden.
+  useEffect(() => {
+    if (editing) return;
+    setBody(variant.body);
+    setMetadata(variant.metadata || {});
+  }, [editing, variant.body, variant.metadata]);
+
   // Existing WordPress categories — lazy-loaded the first time the
   // user opens a blog variant for editing. Stays in state afterwards
   // so the list doesn't re-fetch on every edit/cancel cycle.
@@ -361,18 +372,27 @@ export function VariantCard({
               rows={12}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="font-mono text-sm"
+              className="text-sm leading-relaxed"
             />
           ) : (
-            <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-sm">
+            <div className="max-h-[28rem] max-w-prose overflow-auto whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-[15px] leading-relaxed text-foreground/90">
               {body}
-            </pre>
+            </div>
           )}
         </div>
 
         {(variant.channel === "linkedin" || isCaptionChannel) && (
           <div className="space-y-2">
-            <Label className="text-xs">Mögliche Hashtags</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Mögliche Hashtags</Label>
+              {!editing &&
+                cleanHashtags(metadata.hashtags as string[] | undefined).length >
+                  0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Klick kopiert den Hashtag
+                  </span>
+                )}
+            </div>
             {editing ? (
               <Input
                 value={cleanHashtags(metadata.hashtags as string[] | undefined).join(" ")}
@@ -388,15 +408,11 @@ export function VariantCard({
                 placeholder="hashtag1 hashtag2 hashtag3"
               />
             ) : (
-              <div className="flex flex-wrap gap-1">
-                {cleanHashtags(metadata.hashtags as string[] | undefined).map(
-                  (clean) => (
-                    <Badge key={clean} variant="secondary">
-                      #{clean}
-                    </Badge>
-                  ),
+              <HashtagChips
+                hashtags={cleanHashtags(
+                  metadata.hashtags as string[] | undefined,
                 )}
-              </div>
+              />
             )}
           </div>
         )}
@@ -545,11 +561,13 @@ export function VariantCard({
             variant.channel !== "blog" && (
               <Button
                 size="sm"
-                variant="accent"
+                variant="outline"
                 onClick={markPublished}
                 disabled={pending}
+                title="Markiert diesen Kanal als auf der Plattform veröffentlicht"
               >
-                <ExternalLink className="h-4 w-4" /> Als veröffentlicht markieren
+                <ExternalLink className="h-4 w-4 text-knowon-pink" />
+                Als veröffentlicht markieren
               </Button>
             )}
           {!editing &&
@@ -698,17 +716,14 @@ function NotesThread({
       </div>
 
       {notes.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border/60 rounded-md border bg-background">
           {notes.map((n) => {
             const authorName = n.author?.full_name ?? "Unbekannt";
             const canDelete =
               role === "admin" || n.created_by === currentUserId;
             return (
-              <li
-                key={n.id}
-                className="group rounded-md border bg-background p-2.5"
-              >
-                <div className="flex items-start justify-between gap-2">
+              <li key={n.id} className="flex items-start gap-3 p-2.5">
+                <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center gap-1.5 text-[11px]">
                     <span className="font-semibold text-foreground">
                       {authorName}
@@ -718,32 +733,32 @@ function NotesThread({
                       {formatRelative(n.created_at)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {(role === "admin" || role === "editor") && (
-                      <ApplyNoteButton
-                        variantId={variantId}
-                        noteId={n.id}
-                        appliedToVersion={n.applied_to_version}
-                        disabled={pending}
-                      />
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        onClick={() => onDelete(n.id)}
-                        disabled={pending}
-                        aria-label="Notiz löschen"
-                        title="Löschen"
-                        className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  <p className="whitespace-pre-wrap text-xs text-foreground/90">
+                    {n.body}
+                  </p>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-xs text-foreground/90">
-                  {n.body}
-                </p>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {(role === "admin" || role === "editor") && (
+                    <ApplyNoteButton
+                      variantId={variantId}
+                      noteId={n.id}
+                      appliedToVersion={n.applied_to_version}
+                      disabled={pending}
+                    />
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(n.id)}
+                      disabled={pending}
+                      aria-label="Notiz löschen"
+                      title="Löschen"
+                      className="rounded-md p-1 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -783,6 +798,52 @@ function NotesThread({
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function HashtagChips({ hashtags }: { hashtags: string[] }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const toast = useToast();
+
+  const copyHashtag = async (tag: string) => {
+    try {
+      await navigator.clipboard.writeText(`#${tag}`);
+      setCopied(tag);
+      toast.show(`#${tag} kopiert`, "success");
+      setTimeout(() => setCopied((c) => (c === tag ? null : c)), 1200);
+    } catch {
+      toast.show("Kopieren fehlgeschlagen", "error");
+    }
+  };
+
+  if (hashtags.length === 0) {
+    return <p className="text-xs italic text-muted-foreground">—</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {hashtags.map((clean) => (
+        <button
+          key={clean}
+          type="button"
+          onClick={() => copyHashtag(clean)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
+            copied === clean
+              ? "border-knowon-teal/60 bg-knowon-teal/10 text-knowon-teal"
+              : "border-border bg-secondary text-secondary-foreground hover:border-knowon-teal/40 hover:bg-knowon-teal/5",
+          )}
+          title={`#${clean} kopieren`}
+        >
+          {copied === clean ? (
+            <Check className="h-3 w-3" />
+          ) : (
+            <Copy className="h-3 w-3 opacity-60" />
+          )}
+          <span>#{clean}</span>
+        </button>
+      ))}
     </div>
   );
 }

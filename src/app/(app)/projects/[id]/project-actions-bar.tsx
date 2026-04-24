@@ -10,6 +10,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogBody,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -298,71 +303,87 @@ function ReviewPanel({
         toast.show(res.error, "error");
         return;
       }
-      toast.show(`${res.count} Kanal/Kanäle zur Review geschickt.`, "success");
+      const base = `${res.count} Kanal/Kanäle zur Review geschickt.`;
+      if (res.mailStatus === "sent") {
+        toast.show(`${base} Reviewer benachrichtigt.`, "success");
+      } else if (res.mailStatus === "failed") {
+        toast.show(
+          `${base} E-Mail an Reviewer konnte nicht verschickt werden — SMTP prüfen.`,
+          "error",
+        );
+      } else {
+        toast.show(base, "success");
+      }
       onClose();
       router.refresh();
     });
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed bg-muted/20 p-3">
-      <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide">
-          Kanäle zur Review schicken
-        </Label>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Nur Entwürfe können jetzt zur Review. Bereits freigegebene/veröffentlichte
-          Kanäle bleiben unangetastet.
-        </p>
-      </div>
-      <div className="space-y-1">
-        {draftChannels.length === 0 && (
-          <p className="text-xs italic text-muted-foreground">
-            Keine Entwurfs-Kanäle vorhanden.
+    <Dialog
+      open
+      onClose={pending ? () => {} : onClose}
+      title="Projekt zur Freigabe schicken"
+      description="Wähle die Kanäle und optional den Reviewer, der per E-Mail informiert wird."
+    >
+      <DialogBody className="space-y-4">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold uppercase tracking-wide">
+            Kanäle zur Review schicken
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Nur Entwürfe können jetzt zur Review. Bereits freigegebene/veröffentlichte
+            Kanäle bleiben unangetastet.
           </p>
-        )}
-        {draftChannels.map((c) => (
-          <label
-            key={c}
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-background"
-          >
-            <input
-              type="checkbox"
-              checked={!!checked[c]}
-              onChange={() => toggle(c)}
-              className="h-4 w-4 rounded border-input"
-            />
-            <span className="text-sm">{CHANNEL_LABELS[c]}</span>
-          </label>
-        ))}
-        {lockedChannels.map(({ channel, status }) => (
-          <div
-            key={channel}
-            className="flex items-center gap-2 rounded px-2 py-1 opacity-50"
-          >
-            <input
-              type="checkbox"
-              disabled
-              className="h-4 w-4 rounded border-input"
-            />
-            <span className="text-sm line-through">
-              {CHANNEL_LABELS[channel]}
-            </span>
-            <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-              {statusLabel(status)}
-            </span>
-          </div>
-        ))}
-      </div>
+        </div>
+        <div className="space-y-1">
+          {draftChannels.length === 0 && (
+            <p className="text-xs italic text-muted-foreground">
+              Keine Entwurfs-Kanäle vorhanden.
+            </p>
+          )}
+          {draftChannels.map((c) => (
+            <label
+              key={c}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted/30"
+            >
+              <input
+                type="checkbox"
+                checked={!!checked[c]}
+                onChange={() => toggle(c)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <span className="text-sm">{CHANNEL_LABELS[c]}</span>
+            </label>
+          ))}
+          {lockedChannels.map(({ channel, status }) => (
+            <div
+              key={channel}
+              className="flex items-center gap-2 rounded px-2 py-1 opacity-50"
+            >
+              <input
+                type="checkbox"
+                disabled
+                className="h-4 w-4 rounded border-input"
+              />
+              <span className="text-sm line-through">
+                {CHANNEL_LABELS[channel]}
+              </span>
+              <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                {statusLabel(status)}
+              </span>
+            </div>
+          ))}
+        </div>
 
-      <AssigneeSelect
-        profiles={profiles}
-        value={assigneeId}
-        onChange={setAssigneeId}
-        label="Reviewer zuweisen (optional)"
-      />
-
-      <div className="flex justify-end gap-2">
+        <AssigneeSelect
+          profiles={profiles}
+          value={assigneeId}
+          onChange={setAssigneeId}
+          label="Reviewer (erhält E-Mail)"
+        />
+      </DialogBody>
+      <DialogFooter>
         <Button size="sm" variant="ghost" onClick={onClose} disabled={pending}>
           Abbrechen
         </Button>
@@ -376,8 +397,8 @@ function ReviewPanel({
             ? "Zur Review"
             : `${selected.length} zur Review schicken`}
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </Dialog>
   );
 }
 
@@ -420,33 +441,30 @@ function ApprovePanel({
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed bg-knowon-teal/5 p-3">
-      <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide">
-          Projekt freigeben
-        </Label>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Folgende {inReview.length} Kanal/Kanäle werden auf „freigegeben"
-          gesetzt:
-        </p>
-      </div>
-      <ul className="space-y-1 text-sm">
-        {inReview.map((v) => (
-          <li key={v.id} className="flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5 text-knowon-teal" />
-            {CHANNEL_LABELS[v.channel]}
-          </li>
-        ))}
-      </ul>
+    <Dialog
+      open
+      onClose={pending ? () => {} : onClose}
+      title="Projekt freigeben"
+      description={`Folgende ${inReview.length} Kanal/Kanäle werden auf „freigegeben" gesetzt.`}
+    >
+      <DialogBody className="space-y-4">
+        <ul className="space-y-1 text-sm">
+          {inReview.map((v) => (
+            <li key={v.id} className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-knowon-teal" />
+              {CHANNEL_LABELS[v.channel]}
+            </li>
+          ))}
+        </ul>
 
-      <AssigneeSelect
-        profiles={profiles}
-        value={assigneeId}
-        onChange={setAssigneeId}
-        label="Nächste verantwortliche Person (optional)"
-      />
-
-      <div className="flex justify-end gap-2">
+        <AssigneeSelect
+          profiles={profiles}
+          value={assigneeId}
+          onChange={setAssigneeId}
+          label="Nächste verantwortliche Person (optional)"
+        />
+      </DialogBody>
+      <DialogFooter>
         <Button size="sm" variant="ghost" onClick={onClose} disabled={pending}>
           Abbrechen
         </Button>
@@ -458,8 +476,8 @@ function ApprovePanel({
           )}
           Freigeben
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </Dialog>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, X as XIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { formatRelative } from "@/lib/utils";
@@ -73,9 +73,13 @@ export function SchedulePicker({
             setValue("");
             save("");
           }}
-          className="text-[11px] text-muted-foreground underline hover:text-foreground"
+          disabled={pending}
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+          aria-label="Termin löschen"
+          title="Termin entfernen"
         >
-          Termin löschen
+          <XIcon className="h-3 w-3" />
+          Termin entfernen
         </button>
       )}
     </div>

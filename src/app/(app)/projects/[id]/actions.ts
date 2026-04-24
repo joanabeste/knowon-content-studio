@@ -18,6 +18,7 @@ import { generateVariantsForChannels } from "@/lib/openai/generate-variants";
 import { assertImageMatches } from "@/lib/security/image-magic";
 import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import { applyNoteToBody } from "@/lib/openai/apply-note";
+import { sendReviewInviteEmail } from "@/lib/email/send-review-invite";
 import {
   ALL_CHANNELS,
   CHANNEL_LABELS,
@@ -488,7 +489,9 @@ export async function generateBlogImage(
     console.error("[generateBlogImage] insert error", insertErr);
     // Rollback storage
     await supabase.storage.from("generated-images").remove([filename]);
-    return { error: "Bild-Metadaten konnten nicht gespeichert werden." };
+    return {
+      error: `Bild-Metadaten konnten nicht gespeichert werden: ${insertErr?.message ?? "unbekannter Fehler"}`,
+    };
   }
 
   await supabase.from("audit_log").insert({
@@ -596,8 +599,11 @@ export async function uploadBlogImage(
     .single();
 
   if (insertErr || !imageRow) {
+    console.error("[uploadBlogImage] insert error", insertErr);
     await supabase.storage.from("generated-images").remove([filename]);
-    return { error: "Bild-Metadaten konnten nicht gespeichert werden." };
+    return {
+      error: `Bild-Metadaten konnten nicht gespeichert werden: ${insertErr?.message ?? "unbekannter Fehler"}`,
+    };
   }
 
   await supabase.from("audit_log").insert({
@@ -1313,10 +1319,41 @@ export async function sendProjectToReview(
     },
   });
 
+  // Benachrichtige den Reviewer per E-Mail. Der Mail-Versand ist
+  // best-effort — die Review ist bereits gespeichert. Fehler werden
+  // ins Audit-Log geschrieben, damit Admins Zustellungsprobleme sehen.
+  let mailStatus: "sent" | "failed" | "skipped" = "skipped";
+  if (options.assigneeId && options.assigneeId !== user.id) {
+    const { data: projectRow } = await supabase
+      .from("content_projects")
+      .select("topic")
+      .eq("id", projectId)
+      .single();
+    const mail = await sendReviewInviteEmail({
+      projectId,
+      projectTopic:
+        (projectRow as { topic: string } | null)?.topic ?? "Unbenanntes Projekt",
+      reviewerUserId: options.assigneeId,
+      requesterName: profile.full_name,
+    });
+    if ("error" in mail) {
+      mailStatus = "failed";
+      await supabase.from("audit_log").insert({
+        actor: user.id,
+        action: "review_invite_email_failed",
+        target_type: "content_project",
+        target_id: projectId,
+        payload: { assignee: options.assigneeId, reason: mail.error },
+      });
+    } else {
+      mailStatus = "sent";
+    }
+  }
+
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/dashboard");
   revalidatePath("/review");
-  return { ok: true, count: ids.length };
+  return { ok: true, count: ids.length, mailStatus };
 }
 
 export async function approveProject(
@@ -1784,8 +1821,11 @@ export async function uploadVariantImage(
   });
 
   if (insertErr) {
+    console.error("[uploadVariantImage] insert error", insertErr);
     await supabase.storage.from("generated-images").remove([filename]);
-    return { error: "Bild-Metadaten konnten nicht gespeichert werden." };
+    return {
+      error: `Bild-Metadaten konnten nicht gespeichert werden: ${insertErr.message}`,
+    };
   }
 
   revalidatePath(`/projects/${projectId}`);

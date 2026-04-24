@@ -287,13 +287,15 @@ export function ApplyNoteButton({
       onClick={run}
       disabled={disabled || pending}
       title="Notiz per KI in den Text einarbeiten"
-      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-knowon-pink/10 hover:text-knowon-pink disabled:opacity-40"
+      aria-label="Notiz einarbeiten"
+      className="inline-flex items-center gap-1 rounded-md border border-knowon-pink/30 bg-knowon-pink/5 px-2 py-0.5 text-[11px] font-medium text-knowon-pink transition hover:bg-knowon-pink/10 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="h-3 w-3 animate-spin" />
       ) : (
-        <Wand2 className="h-3.5 w-3.5" />
+        <Wand2 className="h-3 w-3" />
       )}
+      <span>Einarbeiten</span>
     </button>
   );
 }

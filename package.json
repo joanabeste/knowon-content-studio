@@ -21,6 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.460.0",
     "next": "^15.0.3",
+    "nodemailer": "^8.0.5",
     "openai": "^4.73.0",
     "pdf-parse": "^1.1.1",
     "react": "^19.0.0",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.9.3",
+    "@types/nodemailer": "^8.0.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

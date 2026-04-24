@@ -179,16 +179,16 @@ export default async function ProjectDetailPage({
               {statusCounts.published} veröffentlicht
             </Badge>
           )}
-          <span className="ml-auto text-xs text-muted-foreground">
-            Erstellt {formatDate(p.created_at)}
-          </span>
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Erstellt {formatDate(p.created_at)}</span>
+            {canDelete && (
+              <DeleteProjectButton projectId={p.id} topic={p.topic} iconOnly />
+            )}
+          </div>
         </div>
         {/* pr-14 leaves room for the fixed top-right help button */}
-        <div className="flex items-start justify-between gap-4 pr-14">
+        <div className="pr-14">
           <h1 className="text-3xl font-bold leading-tight">{p.topic}</h1>
-          {canDelete && (
-            <DeleteProjectButton projectId={p.id} topic={p.topic} />
-          )}
         </div>
         {p.brief && (
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
