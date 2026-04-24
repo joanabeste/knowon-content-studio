@@ -38,14 +38,11 @@ export function SchedulePicker({
   };
 
   if (!canEdit) {
+    if (!variant.scheduled_at) return null;
     return (
       <div className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <CalendarClock className="h-3 w-3" />
-        <span>
-          {variant.scheduled_at
-            ? `Geplant: ${formatRelative(variant.scheduled_at)}`
-            : "Kein Termin geplant"}
-        </span>
+        <span>Geplant: {formatRelative(variant.scheduled_at)}</span>
       </div>
     );
   }

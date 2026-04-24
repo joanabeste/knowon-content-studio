@@ -15,6 +15,7 @@ import {
 } from "@/lib/supabase/types";
 import { ProjectDetailClient } from "./project-detail-client";
 import { DeleteProjectButton } from "./delete-project-button";
+import { EditableProjectTitle } from "./editable-project-title";
 import type { ImageWithUrl } from "./blog-image-panel";
 import {
   ProjectActionsBar,
@@ -165,9 +166,11 @@ export default async function ProjectDetailPage({
       <main className="min-w-0 flex-1 space-y-6">
         <header className="space-y-3">
           <div className="flex items-start gap-3 pr-14">
-            <h1 className="flex-1 text-3xl font-bold leading-tight">
-              {p.topic}
-            </h1>
+            <EditableProjectTitle
+              projectId={p.id}
+              initialTopic={p.topic}
+              canEdit={profile.role === "admin" || profile.role === "editor"}
+            />
             {canDelete && (
               <DeleteProjectButton projectId={p.id} topic={p.topic} iconOnly />
             )}
@@ -191,58 +194,49 @@ export default async function ProjectDetailPage({
         />
       </main>
 
-      <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-6 lg:w-80 lg:self-start">
-        <section className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Status
-          </h2>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="muted">
-              {approvedOrPublished}/{total} freigegeben
-            </Badge>
-            {statusCounts.in_review > 0 && (
-              <Badge
-                variant="outline"
-                className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-              >
-                {statusCounts.in_review} in Review
+      <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-80 lg:self-start">
+        <div className="divide-y divide-border rounded-lg border bg-card shadow-sm">
+          <section className="space-y-2 p-4">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Status
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="muted">
+                {approvedOrPublished}/{total} freigegeben
               </Badge>
-            )}
-            {statusCounts.draft > 0 && (
-              <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>
-            )}
-            {statusCounts.published > 0 && (
-              <Badge variant="default">
-                {statusCounts.published} veröffentlicht
-              </Badge>
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Erstellt {formatDate(p.created_at)}
-          </p>
-        </section>
+              {statusCounts.in_review > 0 && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                >
+                  {statusCounts.in_review} in Review
+                </Badge>
+              )}
+              {statusCounts.draft > 0 && (
+                <Badge variant="muted">{statusCounts.draft} Entwurf</Badge>
+              )}
+              {statusCounts.published > 0 && (
+                <Badge variant="default">
+                  {statusCounts.published} veröffentlicht
+                </Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Erstellt {formatDate(p.created_at)}
+            </p>
+          </section>
 
-        <ProjectActionsBar
-          project={p}
-          variants={relevantVariants}
-          profiles={profiles}
-          assignedProfile={assignedProfile}
-          currentUserId={user.id}
-          role={profile.role}
-        />
-
-        <section className="space-y-2 rounded-lg border bg-card p-4 shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Kanäle
-          </h2>
-          <div className="flex flex-wrap gap-1">
-            {channels.map((ch) => (
-              <Badge key={ch} variant="secondary" className="capitalize">
-                {CHANNEL_LABELS[ch]}
-              </Badge>
-            ))}
-          </div>
-        </section>
+          <section className="p-4">
+            <ProjectActionsBar
+              project={p}
+              variants={relevantVariants}
+              profiles={profiles}
+              assignedProfile={assignedProfile}
+              currentUserId={user.id}
+              role={profile.role}
+            />
+          </section>
+        </div>
       </aside>
     </div>
   );

@@ -68,45 +68,43 @@ export function ProjectActionsBar({
   const hasInReview = variants.some((v) => v.status === "in_review");
 
   return (
-    <div className="space-y-2 rounded-lg border bg-card p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <AssigneePill
-          assignedProfile={assignedProfile}
-          onClick={() => setMode(mode === "assign" ? null : "assign")}
-          disabled={!canAct}
-        />
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          {hasDraft && canAct && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setMode("review")}
-            >
-              <Send className="h-4 w-4" />
-              In Review schicken
-            </Button>
-          )}
-          {hasInReview && canApprove && (
-            <Button
-              size="sm"
-              onClick={() => setMode("approve")}
-              className="bg-knowon-teal hover:bg-knowon-teal/90"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Projekt freigeben
-            </Button>
-          )}
-          {canAct && variants.length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setMode("regenerate")}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Alle neu generieren
-            </Button>
-          )}
-        </div>
+    <div className="space-y-2">
+      <AssigneePill
+        assignedProfile={assignedProfile}
+        onClick={() => setMode(mode === "assign" ? null : "assign")}
+        disabled={!canAct}
+      />
+      <div className="flex flex-col gap-1.5">
+        {hasInReview && canApprove && (
+          <Button
+            size="sm"
+            onClick={() => setMode("approve")}
+            className="bg-knowon-teal hover:bg-knowon-teal/90"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Projekt freigeben
+          </Button>
+        )}
+        {hasDraft && canAct && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMode("review")}
+          >
+            <Send className="h-4 w-4" />
+            In Review schicken
+          </Button>
+        )}
+        {canAct && variants.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMode("regenerate")}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Alle neu generieren
+          </Button>
+        )}
       </div>
 
       {mode === "assign" && (

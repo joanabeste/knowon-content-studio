@@ -367,8 +367,10 @@ export function VariantCard({
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label className="text-xs">Inhalt</Label>
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Inhalt
+          </span>
           {editing ? (
             <Textarea
               rows={12}
@@ -377,24 +379,15 @@ export function VariantCard({
               className="text-sm leading-relaxed"
             />
           ) : (
-            <div className="max-h-[28rem] max-w-prose overflow-auto whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-[15px] leading-relaxed text-foreground/90">
+            <div className="max-h-[28rem] max-w-prose overflow-auto whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/90">
               {body}
             </div>
           )}
         </div>
 
         {(variant.channel === "linkedin" || isCaptionChannel) && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Mögliche Hashtags</Label>
-              {!editing &&
-                cleanHashtags(metadata.hashtags as string[] | undefined).length >
-                  0 && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Klick kopiert den Hashtag
-                  </span>
-                )}
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Mögliche Hashtags</Label>
             {editing ? (
               <Input
                 value={cleanHashtags(metadata.hashtags as string[] | undefined).join(" ")}
@@ -846,7 +839,7 @@ function HashtagChips({ hashtags }: { hashtags: string[] }) {
           type="button"
           onClick={() => copyHashtag(clean)}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
+            "group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
             copied === clean
               ? "border-knowon-teal/60 bg-knowon-teal/10 text-knowon-teal"
               : "border-border bg-secondary text-secondary-foreground hover:border-knowon-teal/40 hover:bg-knowon-teal/5",
@@ -856,7 +849,7 @@ function HashtagChips({ hashtags }: { hashtags: string[] }) {
           {copied === clean ? (
             <Check className="h-3 w-3" />
           ) : (
-            <Copy className="h-3 w-3 opacity-60" />
+            <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-70" />
           )}
           <span>#{clean}</span>
         </button>

@@ -19,6 +19,35 @@ import { assertImageMatches } from "@/lib/security/image-magic";
 import { assertPublicHttpUrl } from "@/lib/security/url-guard";
 import { applyNoteToBody } from "@/lib/openai/apply-note";
 import { sendReviewInviteEmail } from "@/lib/email/send-review-invite";
+
+export async function renameProject(projectId: string, topic: string) {
+  const { supabase, user, profile } = await requireUser();
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    return { error: "Nur Admin/Editor dürfen Projekte umbenennen." };
+  }
+  const trimmed = topic.trim();
+  if (!trimmed) return { error: "Titel darf nicht leer sein." };
+  if (trimmed.length > 200) return { error: "Titel maximal 200 Zeichen." };
+
+  const { error } = await supabase
+    .from("content_projects")
+    .update({ topic: trimmed, updated_at: new Date().toISOString() })
+    .eq("id", projectId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_log").insert({
+    actor: user.id,
+    action: "project_renamed",
+    target_type: "content_project",
+    target_id: projectId,
+    payload: { topic: trimmed },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
 import {
   ALL_CHANNELS,
   CHANNEL_LABELS,

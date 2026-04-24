@@ -107,15 +107,25 @@ export function VariantImagesPanel({
   };
 
   return (
-    <div className="rounded-md border bg-muted/10">
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+    <div
+      className={cn(
+        "rounded-md border bg-muted/10",
+        !open && "bg-transparent",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 px-3",
+          open ? "py-2" : "py-1.5",
+        )}
+      >
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
         >
-          <ImageIcon className="h-3.5 w-3.5" />
+          <ImageIcon className="h-3 w-3" />
           Bilder
           {images.length > 0 && (
             <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-foreground">
@@ -124,7 +134,7 @@ export function VariantImagesPanel({
           )}
           <ChevronDown
             className={cn(
-              "ml-1 h-3.5 w-3.5 transition-transform",
+              "ml-1 h-3 w-3 transition-transform",
               open && "rotate-180",
             )}
           />
